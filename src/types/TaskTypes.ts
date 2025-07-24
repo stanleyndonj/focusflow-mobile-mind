@@ -52,3 +52,12 @@ export interface WeeklyStats {
   tasksCompleted: number;
   averageDaily: number;
 }
+
+// Extended Task properties for gamification
+export interface TaskGameData {
+  xp: number;
+  taskType: 'frog' | 'quest' | 'regular';
+  difficulty: 'easy' | 'medium' | 'hard';
+  coinReward: number;
+  completionXP: number;
+}

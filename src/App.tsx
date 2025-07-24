@@ -17,6 +17,7 @@ import { ProcrastinationProvider } from "./contexts/ProcrastinationContext";
 import { VisionBoardProvider } from "./contexts/VisionBoardContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { ThemeProvider } from './contexts/ThemeContext';
+import { GameProvider } from './contexts/GameContext';
 
 import Index from "./pages/Index";
 import TasksPage from "./pages/TasksPage";
@@ -86,11 +87,12 @@ const App = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TaskProvider>
-          <TimerProvider>
-            <ProcrastinationProvider>
-              <VisionBoardProvider>
-                <ThemeProvider>
-                  <NotificationProvider>
+          <GameProvider>
+            <TimerProvider>
+              <ProcrastinationProvider>
+                <VisionBoardProvider>
+                  <ThemeProvider>
+                    <NotificationProvider>
                     <TooltipProvider>
                       <BrowserRouter>
                         <div className="fixed inset-0 w-full h-full overflow-hidden bg-background text-foreground">
@@ -153,12 +155,13 @@ const App = () => {
                         </div>
                       </BrowserRouter>
                     </TooltipProvider>
-                  </NotificationProvider>
-                </ThemeProvider>
-              </VisionBoardProvider>
-            </ProcrastinationProvider>
-          </TimerProvider>
-        </TaskProvider>
+                      </NotificationProvider>
+                    </ThemeProvider>
+                  </VisionBoardProvider>
+                </ProcrastinationProvider>
+              </TimerProvider>
+            </GameProvider>
+          </TaskProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

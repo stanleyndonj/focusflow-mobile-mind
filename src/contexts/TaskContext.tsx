@@ -59,6 +59,12 @@ export interface Task {
   notes: TaskNote[];
   links: TaskLink[];
   column?: 'backlog' | 'thisWeek' | 'today' | 'completed';
+  // Gamification properties
+  xp?: number;
+  taskType?: 'frog' | 'quest' | 'regular';
+  difficulty?: 'easy' | 'medium' | 'hard';
+  coinReward?: number;
+  completionXP?: number;
 }
 
 interface TaskAction {
