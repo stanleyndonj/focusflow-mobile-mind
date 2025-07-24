@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple, responsive widget layout for small/medium/large sizes. Uses RemoteViews-compatible views only. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:background="@color/white"
+    android:padding="12dp" >
+
+    <!-- Daily task summary -->
+    <TextView
+        android:id="@+id/textTasks"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Today: 0 Tasks | Completed: 0"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        android:textColor="@android:color/black" />
+
+    <!-- Circular progress / timer visual (placeholder ProgressBar) -->
+    <ProgressBar
+        android:id="@+id/progressTimer"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_below="@id/textTasks"
+        android:layout_marginTop="8dp"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        android:progressDrawable="@drawable/progress_ring" />
+
+    <!-- Start / Stop button for timer (small) -->
+    <ImageButton
+        android:id="@+id/buttonTimerToggle"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_below="@id/progressTimer"
+        android:layout_alignStart="@id/progressTimer"
+        android:layout_marginTop="4dp"
+        android:background="@android:color/transparent"
+        android:src="@android:drawable/ic_media_play"
+        android:contentDescription="@string/start_stop_timer" />
+
+    <!-- + Task shortcut -->
+    <ImageButton
+        android:id="@+id/buttonAddTask"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_alignTop="@id/buttonTimerToggle"
+        android:layout_alignParentEnd="true"
+        android:background="@android:color/transparent"
+        android:src="@android:drawable/ic_input_add"
+        android:contentDescription="@string/add_task" />
+
+    <!-- Quote -->
+    <TextView
+        android:id="@+id/textQuote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/buttonAddTask"
+        android:layout_marginTop="8dp"
+        android:text="Believe you can and you're halfway there."
+        android:textSize="12sp"
+        android:textColor="@android:color/black" />
+
+</RelativeLayout>

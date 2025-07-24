@@ -16,11 +16,13 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
       {/* Main content with proper scrolling */}
       <main 
         className="h-full overflow-y-auto overflow-x-hidden" 
-        style={{ 
-          paddingBottom: '100px',
+        style={{
+          paddingBottom: 'calc(100px + env(safe-area-inset-bottom))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
           height: '100vh',
           margin: 0,
-          padding: '16px 16px 100px 16px'
+          paddingTop: '16px'
         }}
       >
         <AnimatePresence mode="wait">

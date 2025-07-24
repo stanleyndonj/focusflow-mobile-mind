@@ -68,15 +68,15 @@ const BottomNavBar: React.FC = () => {
   const isSecondaryActive = secondaryNavItems.some(item => item.path === location.pathname);
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 flex justify-center pointer-events-none">
+    <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none">
       <motion.nav 
-        className={`flex items-center justify-between bg-background/95 backdrop-blur-lg border border-border rounded-2xl shadow-lg px-4 py-3 pointer-events-auto transition-transform duration-300 ${
+        className={`flex items-center justify-between bg-background/95 backdrop-blur-lg border-t border-border px-4 py-3 pointer-events-auto transition-transform duration-300 w-full ${
           isVisible ? 'translate-y-0' : 'translate-y-24'
         }`}
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.3 }}
-        style={{ minWidth: '280px', maxWidth: '400px', width: '90vw' }}
+        style={{ width: '100%', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {/* Primary Navigation Items */}
         {primaryNavItems.map(({ path, Icon, label }) => {
@@ -84,7 +84,7 @@ const BottomNavBar: React.FC = () => {
           return (
             <motion.button
               key={path}
-              className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 min-w-0 flex-1 ${
+              className={`flex flex-col items-center justify-center p-4 min-h-[48px] rounded-xl transition-all duration-300 min-w-0 flex-1 ${
                 isActive 
                   ? 'text-primary bg-primary/10 scale-105'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -111,7 +111,7 @@ const BottomNavBar: React.FC = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <motion.button
-              className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 min-w-0 ${
+              className={`flex flex-col items-center justify-center p-4 min-h-[48px] rounded-xl transition-all duration-300 min-w-0 ${
                 isSecondaryActive
                   ? 'text-primary bg-primary/10 scale-105'
                   : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'

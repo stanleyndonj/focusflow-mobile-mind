@@ -9,4 +9,6 @@
     <string name="accessibility_service_description">FocusFlow uses accessibility services to monitor and block distracting apps during focus sessions. This helps you maintain concentration and improve productivity by preventing interruptions from social media and other distracting applications.</string>
     <string name="accessibility_service_label">FocusFlow Focus Mode</string>
     <string name="accessibility_service_summary">Helps block distracting apps during focus sessions</string>
+    <string name="add_task">Add Task</string>
+    <string name="start_stop_timer">Start or stop focus timer</string>
 </resources>
