@@ -6,9 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mic, MicOff, Target, CheckCircle, XCircle, BarChart3 } from 'lucide-react';
+import { Mic, MicOff, Target, CheckCircle, XCircle, BarChart3, Eye, Calendar, Flame } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useTasks } from '@/contexts/TaskContext';
+import ReflectionInterface from './ReflectionInterface';
 
 interface AccountabilityMirrorProps {
   onClose?: () => void;
@@ -24,6 +25,7 @@ const AccountabilityMirror: React.FC<AccountabilityMirrorProps> = ({ onClose }) 
   const [blockers, setBlockers] = useState<string[]>([]);
   const [newBlocker, setNewBlocker] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [showReflectionInterface, setShowReflectionInterface] = useState(false);
 
   const todaysReflection = getTodaysReflection();
   const today = new Date().toISOString().split('T')[0];
@@ -273,16 +275,23 @@ const AccountabilityMirror: React.FC<AccountabilityMirrorProps> = ({ onClose }) 
             )}
           </div>
 
-          {/* Submit Button */}
+          {/* Reflect Button */}
           <Button 
-            onClick={handleSubmitReflection}
+            onClick={() => setShowReflectionInterface(true)}
             className="w-full"
             size="lg"
           >
-            Complete Today's Reflection
+            <Eye className="w-4 h-4 mr-2" />
+            Reflect
           </Button>
         </CardContent>
       </Card>
+      
+      {/* Reflection Interface Modal */}
+      <ReflectionInterface 
+        isOpen={showReflectionInterface}
+        onClose={() => setShowReflectionInterface(false)}
+      />
     </motion.div>
   );
 };

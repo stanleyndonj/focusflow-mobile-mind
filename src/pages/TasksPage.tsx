@@ -17,6 +17,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { useTasks, Task } from '@/contexts/TaskContext';
+import { useGame } from '@/contexts/GameContext';
 import TaskItem from '@/components/tasks/TaskItem';
 import AddTaskDialog from '@/components/tasks/AddTaskDialog';
 import TaskDetailDialog from '@/components/tasks/TaskDetailDialog';
@@ -33,6 +34,9 @@ const TasksPage: React.FC = () => {
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isVoiceInputActive, setIsVoiceInputActive] = useState(false);
+  
+  // Game context for shadow mode
+  const gameContext = useGame();
 
   // Filter and view states
   const [showOnlyPriority, setShowOnlyPriority] = useState(false);
@@ -59,6 +63,7 @@ const TasksPage: React.FC = () => {
   const { 
     state: { tasks, loading, currentPage, tasksPerPage },
     addTask, 
+    updateTask,
     toggleComplete, 
     togglePriority,
     setPage,
@@ -175,6 +180,99 @@ const TasksPage: React.FC = () => {
     togglePriority(taskId);
   }, [togglePriority]);
 
+  const handleStartTask = (task: Task) => {
+    console.log('▶️ Attempting to start task:', task.title);
+    
+    // Check if this is a scheduled task and if shadow has already won
+    if (task.scheduledFor) {
+      const scheduledTime = new Date(task.scheduledFor);
+      const currentTime = new Date();
+      const timeDiff = currentTime.getTime() - scheduledTime.getTime();
+      const minutesFromScheduled = Math.floor(timeDiff / (60 * 1000));
+      
+      // If task is more than 15 minutes late, shadow has already won - prevent start
+      if (minutesFromScheduled > 15) {
+        console.log('❌ Task is too late! Shadow has already won. Cannot start.');
+        toast({
+          title: "Too Late!",
+          description: "Your shadow has already won this duel. You cannot start this task now.",
+          variant: "destructive"
+        });
+        return; // Prevent task start
+      }
+    }
+    
+    // Mark task as active
+    updateTask(task.id, { isActive: true });
+    
+    // Start shadow session if enabled
+    if (gameContext.shadowMode.isEnabled) {
+      gameContext.startShadowSession(
+        task.duration || 30,
+        task.id,
+        task.title
+      );
+    }
+    
+    console.log('✅ Task started successfully');
+  };
+  
+  const handleFinishTask = (task: Task) => {
+    console.log('🏁 Attempting to finish task:', task.title);
+    
+    const completedAt = new Date().toISOString();
+    
+    // Check if this is a scheduled task and if shadow has already won
+    if (task.scheduledFor) {
+      const scheduledTime = new Date(task.scheduledFor);
+      const completedTime = new Date(completedAt);
+      const timeDiff = completedTime.getTime() - scheduledTime.getTime();
+      const minutesFromScheduled = Math.floor(timeDiff / (60 * 1000));
+      
+      // If task is more than 15 minutes late, shadow has already won - prevent completion
+      if (minutesFromScheduled > 15) {
+        console.log('❌ Task is too late! Shadow has already won. Cannot complete.');
+        toast({
+          title: "Too Late!",
+          description: "Your shadow has already won this duel. You cannot complete this task now.",
+          variant: "destructive"
+        });
+        return; // Prevent task completion
+      }
+    }
+    
+    // Mark task as completed
+    updateTask(task.id, { 
+      completed: true,
+      completedAt,
+      isActive: false
+    });
+    
+    // Check if this was a scheduled task and register win if on time
+    if (task.scheduledFor) {
+      const scheduledTime = new Date(task.scheduledFor);
+      const completedTime = new Date(completedAt);
+      const timeDiff = completedTime.getTime() - scheduledTime.getTime();
+      const minutesFromScheduled = Math.floor(timeDiff / (60 * 1000));
+      
+      // User wins if completed within 15 minutes of scheduled time
+      if (minutesFromScheduled <= 15) {
+        console.log('🏆 Task completed on time - USER WINS!');
+        gameContext.recordShadowLoss(); // User win = shadow loss
+        
+        // Mark as processed to prevent duplicate processing
+        updateTask(task.id, { shadowDuelProcessed: true });
+      }
+    }
+    
+    // End shadow session if active
+    if (gameContext.shadowMode.isEnabled) {
+      gameContext.endShadowSession(true, false); // completed=true, exitedEarly=false
+    }
+    
+    console.log('✅ Task finished successfully');
+  };
+
   // Voice recognition callback
   const handleSpeechResult = (text: string) => {
     if (text) {
@@ -265,6 +363,8 @@ const TasksPage: React.FC = () => {
                     task={task}
                     onToggleComplete={() => handleToggleComplete(task.id)}
                     onTogglePriority={() => handleTogglePriority(task.id)}
+                    onStartTask={handleStartTask}
+                    onFinishTask={handleFinishTask}
                     onClick={() => setSelectedTask(task)}
                   />
                 </motion.div>
@@ -287,6 +387,8 @@ const TasksPage: React.FC = () => {
                       task={task}
                       onToggleComplete={() => handleToggleComplete(task.id)}
                       onTogglePriority={() => handleTogglePriority(task.id)}
+                      onStartTask={handleStartTask}
+                      onFinishTask={handleFinishTask}
                       onClick={() => setSelectedTask(task)}
                     />
                   </motion.div>

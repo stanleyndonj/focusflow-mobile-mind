@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Sword, Target, Zap, Crown, Timer, Calendar } from 'lucide-react';
+import { Sword, Target, Zap, Crown, Timer, Calendar, Eye, BarChart3 } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useTasks } from '@/contexts/TaskContext';
+import DuelSummary from './DuelSummary';
 
 interface ShadowSelfChallengeProps {
   onClose?: () => void;
@@ -27,6 +28,7 @@ const ShadowSelfChallenge: React.FC<ShadowSelfChallengeProps> = ({ onClose }) =>
 
   const [showDuelAnimation, setShowDuelAnimation] = useState(false);
   const [duelResult, setDuelResult] = useState<any>(null);
+  const [showDuelSummary, setShowDuelSummary] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -219,6 +221,19 @@ const ShadowSelfChallenge: React.FC<ShadowSelfChallengeProps> = ({ onClose }) =>
                   <div className="text-xs text-muted-foreground">Losses</div>
                 </div>
               </div>
+              
+              {/* View Duel Button */}
+              <div className="mt-3">
+                <Button 
+                  onClick={() => setShowDuelSummary(true)}
+                  variant="outline" 
+                  className="w-full"
+                  size="sm"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Duel
+                </Button>
+              </div>
             </div>
 
             <Button onClick={onClose} className="w-full">
@@ -367,6 +382,19 @@ const ShadowSelfChallenge: React.FC<ShadowSelfChallengeProps> = ({ onClose }) =>
                   <div className="text-xs text-muted-foreground">Losses</div>
                 </div>
               </div>
+              
+              {/* View Duel Button */}
+              <div className="mt-3">
+                <Button 
+                  onClick={() => setShowDuelSummary(true)}
+                  variant="outline" 
+                  className="w-full"
+                  size="sm"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  View Duel History
+                </Button>
+              </div>
             </div>
           )}
 
@@ -408,6 +436,16 @@ const ShadowSelfChallenge: React.FC<ShadowSelfChallengeProps> = ({ onClose }) =>
           </Button>
         </CardContent>
       </Card>
+      
+      {/* Duel Summary Modal */}
+      <DuelSummary 
+        isOpen={showDuelSummary}
+        onClose={() => setShowDuelSummary(false)}
+        onRematch={() => {
+          setShowDuelSummary(false);
+          // Additional rematch logic can be added here
+        }}
+      />
     </motion.div>
   );
 };

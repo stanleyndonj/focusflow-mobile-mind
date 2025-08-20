@@ -6,6 +6,8 @@ import TaskCard from './TaskCard';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useGame } from '@/contexts/GameContext';
+import GamificationTimerIntegration from '@/services/GamificationTimerIntegration';
 
 interface Column {
   id: string;
@@ -16,6 +18,14 @@ interface Column {
 const TaskBoard: React.FC = () => {
   const { state: { tasks }, updateTask } = useTasks();
   const [columns, setColumns] = useState<Column[]>([]);
+  const gameContext = useGame();
+  
+  // Initialize gamification timer integration
+  const gamificationTimer = React.useMemo(() => {
+    const timer = GamificationTimerIntegration.getInstance();
+    timer.initialize(gameContext, { updateTask });
+    return timer;
+  }, [updateTask, gameContext]);
 
   useEffect(() => {
     // Initialize columns with tasks
@@ -80,6 +90,61 @@ const TaskBoard: React.FC = () => {
 
     updateTask(task.id, updates);
   };
+  
+  const handleStartTask = (task: Task) => {
+    console.log('🚀 Starting task:', task.title);
+    
+    // Mark task as active and notify shadow mode
+    updateTask(task.id, { 
+      isActive: true,
+      startedAt: new Date().toISOString()
+    });
+    
+    // Notify gamification system
+    if (gameContext.shadowMode.isEnabled) {
+      console.log('🥷 Shadow Mode: Task started, beginning monitoring...');
+      gameContext.startShadowSession(task.duration || 30, task.id, task.title);
+    }
+    
+    console.log('✅ Task started successfully');
+  };
+  
+  const handleFinishTask = (task: Task) => {
+    console.log('🏁 Finishing task early:', task.title);
+    
+    const completedAt = new Date().toISOString();
+    
+    // Mark task as completed
+    updateTask(task.id, { 
+      completed: true,
+      completedAt,
+      isActive: false
+    });
+    
+    // Check if this was a scheduled task and register win if on time
+    if (task.scheduledFor) {
+      const scheduledTime = new Date(task.scheduledFor);
+      const completedTime = new Date(completedAt);
+      const timeDiff = completedTime.getTime() - scheduledTime.getTime();
+      const minutesFromScheduled = Math.floor(timeDiff / (60 * 1000));
+      
+      // User wins if completed within 15 minutes of scheduled time
+      if (minutesFromScheduled <= 15) {
+        console.log('🏆 Task completed on time - USER WINS!');
+        gameContext.recordShadowLoss(); // User win = shadow loss
+        
+        // Mark as processed to prevent duplicate processing
+        updateTask(task.id, { shadowDuelProcessed: true });
+      }
+    }
+    
+    // End shadow session if active
+    if (gameContext.shadowMode.isEnabled) {
+      gameContext.endShadowSession(true, false); // completed=true, exitedEarly=false
+    }
+    
+    console.log('✅ Task finished successfully');
+  };
 
   return (
     <div className="h-full overflow-hidden">
@@ -123,7 +188,11 @@ const TaskBoard: React.FC = () => {
                                 snapshot.isDragging ? 'rotate-3 shadow-lg' : ''
                               }`}
                             >
-                              <TaskCard task={task} />
+                              <TaskCard 
+                                task={task} 
+                                onStartTask={handleStartTask}
+                                onFinishTask={handleFinishTask}
+                              />
                             </div>
                           )}
                         </Draggable>

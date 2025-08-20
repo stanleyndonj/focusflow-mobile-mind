@@ -41,6 +41,8 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [duration, setDuration] = useState<number | undefined>(30);
+  const [showCustomDurationInput, setShowCustomDurationInput] = useState(false);
+  const [customDurationValue, setCustomDurationValue] = useState('');
   
   const { addTask, state, addCategory } = useTasks();
   const { categories } = state;
@@ -80,17 +82,74 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
     const taskId = Date.now().toString();
     
     // Calculate duration if start and end times are provided
-    let calculatedDuration = duration;
+    let calculatedDuration = duration || 30; // Default to 30 minutes if duration is undefined
+    
+    // Validate and sanitize duration
+    if (typeof calculatedDuration !== 'number' || isNaN(calculatedDuration) || calculatedDuration <= 0) {
+      calculatedDuration = 30; // Default fallback
+    }
+    
     if (startTime && endTime) {
-      const start = startTime.split(':').map(Number);
-      const end = endTime.split(':').map(Number);
-      
-      const startMinutes = start[0] * 60 + start[1];
-      const endMinutes = end[0] * 60 + end[1];
-      
-      if (endMinutes > startMinutes) {
-        calculatedDuration = endMinutes - startMinutes;
+      try {
+        const start = startTime.split(':').map(Number);
+        const end = endTime.split(':').map(Number);
+        
+        // Validate time parsing
+        if (start.length === 2 && end.length === 2 && 
+            !isNaN(start[0]) && !isNaN(start[1]) && 
+            !isNaN(end[0]) && !isNaN(end[1])) {
+          
+          const startMinutes = start[0] * 60 + start[1];
+          const endMinutes = end[0] * 60 + end[1];
+          
+          if (endMinutes > startMinutes) {
+            calculatedDuration = endMinutes - startMinutes;
+          }
+        }
+      } catch (error) {
+        console.warn('Error calculating duration from time range:', error);
+        // Keep the default calculatedDuration
       }
+    }
+    
+    // Final validation to ensure no NaN values
+    if (isNaN(calculatedDuration) || calculatedDuration <= 0) {
+      calculatedDuration = 30;
+    }
+    
+    console.log(`🥷 Final calculatedDuration: ${calculatedDuration} minutes`);
+    
+    // Validate all numeric values to prevent serialization errors
+    const safeNumericValue = (value: any, defaultValue: number = 0): number => {
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      return isNaN(num) || !isFinite(num) ? defaultValue : Math.round(num);
+    };
+    
+    const safeDuration = safeNumericValue(calculatedDuration, 30);
+    const safeEstimatedDuration = safeNumericValue(calculatedDuration * 60, 1800); // 30 minutes in seconds
+    
+    console.log(`🥷 Safe duration values: duration=${safeDuration}, estimatedDuration=${safeEstimatedDuration}`);
+    
+    // Create scheduledFor timestamp for Shadow Mode tracking
+    console.log(`🥷 Creating task "${title.trim()}":`);
+    console.log(`  - dueDate: ${dueDate ? dueDate.toISOString() : 'None'}`);
+    console.log(`  - startTime: ${startTime || 'None'}`);
+    console.log(`  - endTime: ${endTime || 'None'}`);
+    
+    let scheduledFor: string | undefined = undefined;
+    if (dueDate && startTime) {
+      try {
+        const [hours, minutes] = startTime.split(':').map(Number);
+        const scheduledDateTime = new Date(dueDate);
+        scheduledDateTime.setHours(hours, minutes, 0, 0);
+        scheduledFor = scheduledDateTime.toISOString();
+        console.log(`🥷 Task "${title.trim()}" scheduled for: ${scheduledDateTime.toLocaleString()}`);
+        console.log(`  - scheduledFor ISO: ${scheduledFor}`);
+      } catch (error) {
+        console.error(`❌ Error creating scheduledFor for task "${title.trim()}":`, error);
+      }
+    } else {
+      console.log(`⚠️ Task "${title.trim()}" will NOT have scheduledFor (missing dueDate or startTime)`);
     }
     
     const newTask: Omit<Task, 'id' | 'createdAt'> = {
@@ -101,7 +160,9 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
       dueTime: dueTime || undefined,
       startTime: startTime || undefined,
       endTime: endTime || undefined,
-      duration: calculatedDuration,
+      scheduledFor: scheduledFor, // Critical for Shadow Mode tracking
+      duration: safeDuration, // Validated integer value
+      estimatedDuration: safeEstimatedDuration, // Validated seconds value
       notifyAt,
       hasNotification: !!hasValidNotification,
       priority,
@@ -119,13 +180,19 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
       isActive: recurrence !== 'none' ? true : undefined,
       completedAt: undefined,
       updatedAt: new Date().toISOString(),
-      totalTimeSpent: 0,
+      totalTimeSpent: 0, // Validated numeric value
       focusSessions: [],
       notes: [],
       links: [],
-      estimatedDuration: calculatedDuration || 25,
-      actualDuration: 0,
-      column: 'backlog'
+      actualDuration: 0, // Validated numeric value
+      column: 'backlog',
+      // Gamification numeric fields - ensure they're not NaN
+      xp: 0,
+      coinReward: 0,
+      completionXP: 0,
+      streak: 0,
+      // Shadow Mode tracking flag - initialize to false for new tasks
+      shadowDuelProcessed: false
     };
     
     addTask(newTask);
@@ -183,15 +250,37 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
   };
 
   const handleSelectDuration = (mins: number) => {
-    setDuration(mins);
+    // Validate and sanitize duration input
+    let validDuration = mins;
+    if (typeof mins !== 'number' || isNaN(mins) || mins <= 0) {
+      console.warn('Invalid duration provided:', mins, 'defaulting to 30 minutes');
+      validDuration = 30;
+    }
+    
+    // Ensure duration is within reasonable bounds
+    if (validDuration > 480) { // Max 8 hours
+      validDuration = 480;
+    }
+    
+    console.log(`🕰️ Setting duration to: ${validDuration} minutes`);
+    setDuration(validDuration);
+    
     if (startTime) {
-      // Calculate end time based on start time and duration
-      const [hours, minutes] = startTime.split(':').map(Number);
-      const totalMinutes = hours * 60 + minutes + mins;
-      const newHours = Math.floor(totalMinutes / 60) % 24;
-      const newMinutes = totalMinutes % 60;
-      
-      setEndTime(`${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`);
+      try {
+        // Calculate end time based on start time and duration
+        const [hours, minutes] = startTime.split(':').map(Number);
+        
+        // Validate time parsing
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const totalMinutes = hours * 60 + minutes + validDuration;
+          const newHours = Math.floor(totalMinutes / 60) % 24;
+          const newMinutes = totalMinutes % 60;
+          
+          setEndTime(`${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`);
+        }
+      } catch (error) {
+        console.warn('Error calculating end time:', error);
+      }
     }
   };
 
@@ -495,19 +584,65 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
                       type="button"
                       variant={duration !== 30 && duration !== 60 && duration !== 90 ? "default" : "outline"}
                       onClick={() => {
-                        const customDuration = prompt("Enter custom duration in minutes:", duration?.toString() || "30");
-                        if (customDuration) {
-                          const mins = parseInt(customDuration);
-                          if (!isNaN(mins) && mins > 0) {
-                            handleSelectDuration(mins);
-                          }
-                        }
+                        console.log('🕰️ Custom duration button clicked');
+                        setShowCustomDurationInput(true);
+                        setCustomDurationValue(duration?.toString() || '30');
                       }}
                       className="w-full"
                     >
-                      Custom
+                      Custom {duration !== 30 && duration !== 60 && duration !== 90 ? `(${duration}m)` : ''}
                     </Button>
                   </div>
+                  
+                  {/* Custom Duration Input */}
+                  {showCustomDurationInput && (
+                    <div className="mt-3 p-3 border rounded-lg bg-slate-50 dark:bg-slate-800">
+                      <label className="block text-sm font-medium mb-2">
+                        Custom Duration (minutes)
+                      </label>
+                      <div className="flex space-x-2">
+                        <input
+                          type="number"
+                          value={customDurationValue}
+                          onChange={(e) => setCustomDurationValue(e.target.value)}
+                          placeholder="Enter minutes (e.g., 45, 120)"
+                          min="1"
+                          max="480"
+                          className="flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:border-slate-600"
+                          autoFocus
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const mins = parseInt(customDurationValue.trim());
+                            console.log('🕰️ Setting custom duration:', mins);
+                            
+                            if (!isNaN(mins) && mins > 0 && mins <= 480) {
+                              handleSelectDuration(mins);
+                              setShowCustomDurationInput(false);
+                              console.log('🕰️ Custom duration set successfully:', mins, 'minutes');
+                            } else {
+                              alert('Please enter a valid duration between 1 and 480 minutes (8 hours)');
+                            }
+                          }}
+                        >
+                          Set
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowCustomDurationInput(false);
+                            console.log('🕰️ Custom duration input cancelled');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-2 pt-2">

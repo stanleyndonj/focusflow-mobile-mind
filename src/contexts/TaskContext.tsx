@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
 import { toast } from '@/components/ui/use-toast';
 
+// Counter to ensure unique IDs
+let idCounter = 0;
+const generateUniqueId = () => {
+  idCounter += 1;
+  return `${Date.now()}-${idCounter}`;
+};
+
 export interface FocusSession {
   startTime: string;
   endTime: string;
@@ -40,6 +47,7 @@ export interface Task {
   dueTime?: string;
   startTime?: string;
   endTime?: string;
+  scheduledFor?: string; // Critical for Shadow Mode tracking
   duration?: number;
   notifyAt?: string;
   hasNotification?: boolean;
@@ -65,6 +73,9 @@ export interface Task {
   difficulty?: 'easy' | 'medium' | 'hard';
   coinReward?: number;
   completionXP?: number;
+  // Shadow mode and task state properties
+  startedAt?: string;
+  shadowDuelProcessed?: boolean;
 }
 
 interface TaskAction {
@@ -110,7 +121,25 @@ const initialState: TaskState = {
 const taskReducer = (state: TaskState, action: TaskAction): TaskState => {
   switch (action.type) {
     case 'ADD_TASK':
-      return { ...state, tasks: [{ id: Date.now().toString(), createdAt: new Date().toISOString(), ...action.payload }, ...state.tasks] };
+      // Validate all numeric fields to prevent serialization errors
+      const safeNumericValue = (value: any, defaultValue: number = 0): number => {
+        const num = typeof value === 'number' ? value : parseFloat(value);
+        return isNaN(num) || !isFinite(num) ? defaultValue : Math.round(num);
+      };
+      
+      const validatedPayload = {
+        ...action.payload,
+        duration: safeNumericValue(action.payload.duration, 30),
+        estimatedDuration: safeNumericValue(action.payload.estimatedDuration, 1800),
+        totalTimeSpent: safeNumericValue(action.payload.totalTimeSpent, 0),
+        actualDuration: safeNumericValue(action.payload.actualDuration, 0),
+        xp: safeNumericValue(action.payload.xp, 0),
+        coinReward: safeNumericValue(action.payload.coinReward, 0),
+        completionXP: safeNumericValue(action.payload.completionXP, 0),
+        streak: safeNumericValue(action.payload.streak, 0)
+      };
+      
+      return { ...state, tasks: [{ id: generateUniqueId(), createdAt: new Date().toISOString(), ...validatedPayload }, ...state.tasks] };
     case 'UPDATE_TASK':
       return {
         ...state,
@@ -138,7 +167,7 @@ const taskReducer = (state: TaskState, action: TaskAction): TaskState => {
       return {
         ...state,
         tasks: state.tasks.map((task) =>
-          task.id === action.payload.taskId ? { ...task, subtasks: [...task.subtasks, { id: Date.now().toString(), title: action.payload.title, completed: false, createdAt: new Date().toISOString() }] } : task
+          task.id === action.payload.taskId ? { ...task, subtasks: [...task.subtasks, { id: generateUniqueId(), title: action.payload.title, completed: false, createdAt: new Date().toISOString() }] } : task
         ),
       };
     case 'TOGGLE_SUBTASK':

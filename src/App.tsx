@@ -10,6 +10,7 @@ import NotificationService from './services/NotificationService';
 import { Capacitor } from '@capacitor/core';
 import AppLoader from './components/ui/app-loader';
 import PersistentNotificationBar from './components/notifications/PersistentNotificationBar';
+import DailyTriggers from './components/game/DailyTriggers';
 
 import { TaskProvider } from "./contexts/TaskContext";
 import { TimerProvider } from "./contexts/TimerContext";
@@ -28,6 +29,7 @@ import SettingsPage from "./pages/SettingsPage";
 import ReviewPage from "./pages/ReviewPage";
 import CalendarPage from "./pages/CalendarPage";
 import VisionBoardPage from "./pages/VisionBoardPage";
+import GamificationPage from "./pages/GamificationPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,8 +89,8 @@ const App = () => {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TaskProvider>
-          <GameProvider>
-            <TimerProvider>
+          <TimerProvider>
+            <GameProvider>
               <ProcrastinationProvider>
                 <VisionBoardProvider>
                   <ThemeProvider>
@@ -97,6 +99,7 @@ const App = () => {
                       <BrowserRouter>
                         <div className="fixed inset-0 w-full h-full overflow-hidden bg-background text-foreground">
                           {showLoader && <AppLoader onFinished={() => setShowLoader(false)} />}
+                          <DailyTriggers />
                           <Toaster />
                           <Sonner />
                           
@@ -146,6 +149,11 @@ const App = () => {
                                 <VisionBoardPage />
                               </ErrorBoundary>
                             } />
+                            <Route path="/gamification" element={
+                              <ErrorBoundary>
+                                <GamificationPage />
+                              </ErrorBoundary>
+                            } />
                             <Route path="*" element={
                               <ErrorBoundary>
                                 <NotFound />
@@ -159,8 +167,8 @@ const App = () => {
                     </ThemeProvider>
                   </VisionBoardProvider>
                 </ProcrastinationProvider>
-              </TimerProvider>
-            </GameProvider>
+              </GameProvider>
+            </TimerProvider>
           </TaskProvider>
       </QueryClientProvider>
     </ErrorBoundary>

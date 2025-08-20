@@ -3,7 +3,7 @@ import React from 'react';
 import { Task } from '@/contexts/TaskContext';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { Star, ChevronRight, Calendar, Clock, Flame } from 'lucide-react';
+import { Star, ChevronRight, Calendar, Clock, Flame, Timer, CheckCircle } from 'lucide-react';
 import { format, isSameDay, isToday } from 'date-fns';
 import TaskTimeDisplay from '@/components/task/TaskTimeDisplay';
 import TaskLiveTimer from '@/components/task/TaskLiveTimer';
@@ -13,6 +13,8 @@ interface TaskItemProps {
   task: Task;
   onToggleComplete: () => void;
   onTogglePriority: () => void;
+  onStartTask?: (task: Task) => void;
+  onFinishTask?: (task: Task) => void;
   onClick: () => void;
 }
 
@@ -20,6 +22,8 @@ const TaskItem: React.FC<TaskItemProps> = ({
   task, 
   onToggleComplete, 
   onTogglePriority,
+  onStartTask,
+  onFinishTask,
   onClick 
 }) => {
   const { state: timerState } = useTimer();
@@ -117,7 +121,42 @@ const TaskItem: React.FC<TaskItemProps> = ({
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Start/Finish buttons for shadow mode */}
+          {!task.completed && (
+            <div className="flex items-center gap-1">
+              {/* Start Task button */}
+              {onStartTask && !task.isActive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartTask(task);
+                  }}
+                  className="px-2 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded-md transition-colors flex items-center gap-1"
+                  title="Start task and notify shadow mode"
+                >
+                  <Timer size={10} />
+                  Start
+                </button>
+              )}
+              
+              {/* Finish Task button */}
+              {onFinishTask && task.isActive && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFinishTask(task);
+                  }}
+                  className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors flex items-center gap-1"
+                  title="Finish task early and register win"
+                >
+                  <CheckCircle size={10} />
+                  Finish
+                </button>
+              )}
+            </div>
+          )}
+          
           <button 
             onClick={handleStarClick}
             className="focus:outline-none transform transition-transform hover:scale-110"

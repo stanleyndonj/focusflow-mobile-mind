@@ -32,6 +32,7 @@ const BottomNavBar: React.FC = () => {
   // Secondary navigation items (in dropdown menu)
   const secondaryNavItems = [
     { path: '/vision-board', label: 'My Why' },
+    { path: '/gamification', label: 'Gamification' },
     { path: '/review', label: 'Review' },
     { path: '/calendar', label: 'Calendar' },
     { path: '/settings', label: 'Settings' },

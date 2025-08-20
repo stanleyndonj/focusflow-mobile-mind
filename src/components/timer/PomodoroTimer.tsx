@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Play, Pause, RotateCcw, Coffee } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Task } from '@/contexts/TaskContext';
 import TaskTimerService from '@/services/TaskTimerService';
@@ -12,18 +12,21 @@ interface PomodoroTimerProps {
   task?: Task;
   onSessionComplete?: (taskId: string, duration: number) => void;
   onBreakComplete?: () => void;
+  onTaskAbandoned?: (taskId: string, timeSpent: number) => void;
 }
 
 const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
   task,
   onSessionComplete,
-  onBreakComplete
+  onBreakComplete,
+  onTaskAbandoned
 }) => {
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [isActive, setIsActive] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const [focusDuration] = useState(25); // minutes
   const [breakDuration] = useState(5); // minutes
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 
   const timerService = TaskTimerService.getInstance();
 
@@ -69,6 +72,7 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
     if (!isActive && !isBreak && task) {
       // Starting focus session
       timerService.startTaskTimer(task.id, focusDuration);
+      setSessionStartTime(Date.now());
     }
     setIsActive(!isActive);
   };
@@ -88,6 +92,25 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
       setIsBreak(true);
       setTimeLeft(breakDuration * 60);
       setIsActive(false);
+    }
+  };
+
+  const abandonTask = () => {
+    if (task && sessionStartTime) {
+      const timeSpent = Date.now() - sessionStartTime;
+      console.log(`🚫 Task abandoned: ${task.title}, Time spent: ${Math.round(timeSpent / 1000)}s`);
+      
+      // Stop the timer service
+      timerService.pauseActiveSession();
+      
+      // Reset timer state
+      setIsActive(false);
+      setIsBreak(false);
+      setTimeLeft(focusDuration * 60);
+      setSessionStartTime(null);
+      
+      // Notify parent component
+      onTaskAbandoned?.(task.id, timeSpent);
     }
   };
 
@@ -159,6 +182,19 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({
             className="w-14 h-14 rounded-full"
           >
             <Coffee size={20} />
+          </Button>
+        )}
+        
+        {/* Abandon button - only show during active task focus session */}
+        {task && isActive && !isBreak && sessionStartTime && (
+          <Button
+            onClick={abandonTask}
+            variant="destructive"
+            size="lg"
+            className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600"
+            title="Abandon Task"
+          >
+            <X size={20} />
           </Button>
         )}
       </div>

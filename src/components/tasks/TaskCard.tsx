@@ -3,17 +3,19 @@ import React from 'react';
 import { Task } from '@/contexts/TaskContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Play, Star, MessageSquare, Link as LinkIcon } from 'lucide-react';
+import { Clock, Play, Star, MessageSquare, Link as LinkIcon, CheckCircle, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface TaskCardProps {
   task: Task;
   onStartTimer?: (task: Task) => void;
+  onStartTask?: (task: Task) => void;
+  onFinishTask?: (task: Task) => void;
   onClick?: () => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onStartTimer, onClick }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onStartTimer, onStartTask, onFinishTask, onClick }) => {
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -102,19 +104,59 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onStartTimer, onClick }) => {
             )}
           </div>
 
-          {/* Quick start timer button */}
-          {!task.completed && onStartTimer && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartTimer(task);
-              }}
-            >
-              <Play size={12} />
-            </Button>
+          {/* Action buttons */}
+          {!task.completed && (
+            <div className="flex items-center gap-1">
+              {/* Start Task button - for shadow mode tracking */}
+              {onStartTask && !task.isActive && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartTask(task);
+                  }}
+                  title="Start task and notify shadow mode"
+                >
+                  <Timer size={12} className="mr-1" />
+                  Start
+                </Button>
+              )}
+              
+              {/* Finish Task button - for early completion */}
+              {onFinishTask && task.isActive && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFinishTask(task);
+                  }}
+                  title="Finish task early and register win"
+                >
+                  <CheckCircle size={12} className="mr-1" />
+                  Finish
+                </Button>
+              )}
+              
+              {/* Quick start timer button */}
+              {onStartTimer && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartTimer(task);
+                  }}
+                  title="Start focus timer"
+                >
+                  <Play size={12} />
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
