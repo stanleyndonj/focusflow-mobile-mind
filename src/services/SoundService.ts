@@ -251,25 +251,93 @@ class SoundService {
     }
   }
   
-  // Method to get file from device storage
-  async getFileFromDevice(): Promise<{url: string, name: string} | null> {
+  // Enhanced method to get file from device storage with better validation
+  async getFileFromDevice(): Promise<{url: string, name: string, size: number, type: string} | null> {
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'audio/*';
+      input.accept = 'audio/*,.mp3,.wav,.ogg,.m4a,.aac'; // More specific audio formats
+      input.multiple = false;
       
-      input.onchange = (e) => {
+      input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) {
           resolve(null);
           return;
         }
         
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: "Please select an audio file smaller than 10MB",
+            variant: "destructive"
+          });
+          resolve(null);
+          return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('audio/')) {
+          toast({
+            title: "Invalid file type",
+            description: "Please select a valid audio file",
+            variant: "destructive"
+          });
+          resolve(null);
+          return;
+        }
+        
+        // Create URL and test if the audio can be loaded
         const url = URL.createObjectURL(file);
-        resolve({
-          url,
-          name: file.name
+        
+        // Test audio loading
+        const testAudio = new Audio(url);
+        testAudio.oncanplaythrough = () => {
+          testAudio.remove();
+          resolve({
+            url,
+            name: file.name,
+            size: file.size,
+            type: file.type
+          });
+        };
+        
+        testAudio.onerror = () => {
+          URL.revokeObjectURL(url);
+          testAudio.remove();
+          toast({
+            title: "Invalid audio file",
+            description: "The selected file cannot be played as audio",
+            variant: "destructive"
+          });
+          resolve(null);
+        };
+        
+        // Set a timeout for loading test
+        setTimeout(() => {
+          if (testAudio.readyState < 4) { // Not loaded yet
+            URL.revokeObjectURL(url);
+            testAudio.remove();
+            toast({
+              title: "Audio loading timeout",
+              description: "The audio file took too long to load",
+              variant: "destructive"
+            });
+            resolve(null);
+          }
+        }, 5000);
+        
+        testAudio.load();
+      };
+      
+      input.onerror = () => {
+        toast({
+          title: "File selection error",
+          description: "There was an error selecting the file",
+          variant: "destructive"
         });
+        resolve(null);
       };
       
       input.click();

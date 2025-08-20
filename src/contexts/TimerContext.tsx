@@ -48,6 +48,7 @@ type TimerAction =
   | { type: 'UPDATE_STREAK' }
   | { type: 'LOG_FOCUS_SESSION'; payload: { duration: number; task: string | null; taskId: string | null; completed: boolean } }
   | { type: 'TOGGLE_SOUND'; payload: boolean }
+  | { type: 'SYNC_BACKGROUND_TIME'; payload: number }
   | { type: 'TOGGLE_TICK_SOUND'; payload: boolean }
   | { type: 'LOAD_STATE'; payload: TimerState };
 
@@ -286,6 +287,11 @@ const timerReducer = (state: TimerState, action: TimerAction): TimerState => {
       };
     case 'LOAD_STATE':
       return action.payload;
+    case 'SYNC_BACKGROUND_TIME':
+      return {
+        ...state,
+        timeLeft: action.payload
+      };
     default:
       return state;
   }
@@ -375,29 +381,153 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [state.mode, state.timeLeft]);
 
-  // Handle visibility changes for tree health
+  // Enhanced background operations - support for screen off/timeout scenarios
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && state.isRunning && state.mode === 'focus') {
-        // User left during focus time
-        localStorage.setItem('timerLeftAt', Date.now().toString());
+      if (document.visibilityState === 'hidden') {
+        // Save comprehensive state when going to background
+        localStorage.setItem('timerBackgroundState', JSON.stringify({
+          ...state,
+          backgroundTimestamp: Date.now(),
+          wasRunning: state.isRunning
+        }));
+        
+        if (state.isRunning && state.mode === 'focus') {
+          // User left during focus time - mark timestamp but don't penalize immediately
+          localStorage.setItem('timerLeftAt', Date.now().toString());
+        }
       } else if (document.visibilityState === 'visible') {
-        // User came back
+        // User came back - restore and calculate background progress
+        const backgroundState = localStorage.getItem('timerBackgroundState');
         const leftAt = localStorage.getItem('timerLeftAt');
-        if (leftAt && state.isRunning && state.mode === 'focus') {
+        
+        if (backgroundState) {
+          try {
+            const bgState = JSON.parse(backgroundState);
+            const timeInBackground = (Date.now() - bgState.backgroundTimestamp) / 1000;
+            
+            // If timer was running when backgrounded, continue counting
+            if (bgState.wasRunning && timeInBackground > 0) {
+              const newTimeLeft = Math.max(0, state.timeLeft - Math.floor(timeInBackground));
+              
+              // Update timer with background progress
+              if (newTimeLeft === 0 && state.timeLeft > 0) {
+                // Timer completed while in background
+                dispatch({ type: 'COMPLETE_SESSION' });
+                toast({
+                  title: state.mode === 'focus' ? 'Focus session completed in background!' : 'Break completed!',
+                  description: state.mode === 'focus' ? 'Your tree has grown while you were away!' : 'Ready for another focus session?',
+                });
+              } else if (newTimeLeft > 0) {
+                // Timer still running, just update time
+                dispatch({ type: 'SYNC_BACKGROUND_TIME', payload: newTimeLeft });
+              }
+            }
+          } catch (error) {
+            console.error('Error restoring background state:', error);
+          }
+        }
+        
+        // Handle focus-specific background behavior (tree health)
+        if (leftAt && state.mode === 'focus') {
           const timeAway = (Date.now() - parseInt(leftAt)) / 1000;
-          // If away for more than 10 seconds during focus, reduce tree health
-          if (timeAway > 10) {
-            const reduction = Math.min(Math.floor(timeAway / 10) * 5, state.treeHealth);
-            updateTreeHealth(state.treeHealth - reduction);
+          
+          // More lenient tree health system - only penalize if away for extended periods during active focus
+          // Screen timeout or brief background usage shouldn't kill the tree
+          if (timeAway > 300 && state.isRunning) { // 5+ minutes away during active focus session
+            const reduction = Math.min(Math.floor(timeAway / 60) * 2, state.treeHealth); // 2 health per minute
+            updateTreeHealth(Math.max(1, state.treeHealth - reduction)); // Never kill tree completely from background
 
-            if (state.treeHealth - reduction <= 0) {
+            if (state.treeHealth - reduction <= 20) {
               toast({
-                title: 'Your tree has died!',
-                description: 'Stay focused next time to keep your tree alive.',
+                title: 'Your tree needs attention!',
+                description: 'Extended time away has weakened your tree. Stay focused to help it recover.',
                 variant: 'destructive'
               });
-            } else if (state.treeHealth - reduction < 50) {
+            }
+          }
+        }
+        
+        // Clean up background tracking
+        localStorage.removeItem('timerLeftAt');
+        localStorage.removeItem('timerBackgroundState');
+      }
+    };
+
+    // Also handle page beforeunload to save state
+    const handleBeforeUnload = () => {
+      localStorage.setItem('timerBackgroundState', JSON.stringify({
+        ...state,
+        backgroundTimestamp: Date.now(),
+        wasRunning: state.isRunning
+      }));
+    };
+
+    // Handle device sleep/wake and focus/blur events
+    const handleFocus = () => handleVisibilityChange();
+    const handleBlur = () => {
+      // Treat blur like visibility hidden for comprehensive background support
+      localStorage.setItem('timerBackgroundState', JSON.stringify({
+        ...state,
+        backgroundTimestamp: Date.now(),
+        wasRunning: state.isRunning
+      }));
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [state]);
+
+  // Additional background timer sync logic
+  useEffect(() => {
+    // Check for background timer completion on app startup/resume
+    const checkBackgroundCompletion = () => {
+      const backgroundState = localStorage.getItem('timerBackgroundState');
+      if (backgroundState && !state.isRunning) {
+        try {
+          const bgState = JSON.parse(backgroundState);
+          if (bgState.wasRunning) {
+            const timeInBackground = (Date.now() - bgState.backgroundTimestamp) / 1000;
+            const wouldHaveCompleted = bgState.timeLeft <= timeInBackground;
+            
+            if (wouldHaveCompleted && bgState.mode === 'focus') {
+              // Focus session completed in background
+              dispatch({ type: 'COMPLETE_SESSION' });
+              localStorage.removeItem('timerBackgroundState');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking background completion:', error);
+        }
+      }
+    };
+
+    // Run check on component mount
+    checkBackgroundCompletion();
+  }, []);
+
+  // Legacy tree health check (keeping for compatibility but more lenient)
+  useEffect(() => {
+    const legacyHealthCheck = () => {
+      const leftAt = localStorage.getItem('timerLeftAt');
+      if (leftAt && state.isRunning && state.mode === 'focus') {
+        const timeAway = (Date.now() - parseInt(leftAt)) / 1000;
+        // Much more lenient - only for very long periods of inactivity
+        if (timeAway > 600) { // 10+ minutes
+          const reduction = Math.min(Math.floor(timeAway / 120) * 5, state.treeHealth); // 5 health per 2 minutes
+          if (reduction > 0) {
+            updateTreeHealth(Math.max(5, state.treeHealth - reduction)); // Never go below 5 health
+
+            if (state.treeHealth - reduction < 30) {
               toast({
                 title: 'Your tree is withering!',
                 description: 'Stay in focus mode to keep your tree healthy.',
@@ -409,11 +539,9 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Note: visibility change handler is already handled in the main useEffect above
+    // No need to add duplicate event listeners here
 
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
   }, [state.isRunning, state.mode, state.treeHealth]);
 
   const startTimer = (durationSeconds?: number, task?: string, taskId?: string) => {

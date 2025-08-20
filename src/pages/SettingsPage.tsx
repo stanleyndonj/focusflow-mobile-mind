@@ -95,6 +95,38 @@ const SettingsPage: React.FC = () => {
   const handleUrgentNotificationsChange = (checked: boolean) => {
     setUrgentNotifications(checked);
     localStorage.setItem('urgentNotifications', checked.toString());
+    
+    toast({
+      title: checked ? "Urgent notifications enabled" : "Urgent notifications disabled",
+      description: checked 
+        ? "You'll receive persistent call-style notifications for urgent tasks" 
+        : "Urgent notifications have been turned off",
+    });
+  };
+
+  const testUrgentNotification = async () => {
+    if (!urgentNotifications) {
+      toast({
+        title: "Urgent notifications disabled",
+        description: "Please enable urgent notifications first to test them",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await NotificationService.testUrgentNotification();
+      toast({
+        title: "Test notification scheduled",
+        description: "You should receive an urgent notification in 2 seconds",
+      });
+    } catch (error) {
+      toast({
+        title: "Test failed",
+        description: "Could not schedule test notification. Check permissions.",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleClearAllData = () => {
@@ -240,16 +272,36 @@ const SettingsPage: React.FC = () => {
                   />
                 </div>
                 
-                <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-                  <label htmlFor="urgentNotifications" className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Use urgent call-style notifications
-                  </label>
-                  <Switch
-                    id="urgentNotifications"
-                    checked={urgentNotifications}
-                    onCheckedChange={handleUrgentNotificationsChange}
-                    className="data-[state=checked]:bg-blue-500"
-                  />
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label htmlFor="urgentNotifications" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Use urgent call-style notifications
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Persistent notifications with continuous sound and vibration until dismissed
+                      </p>
+                    </div>
+                    <Switch
+                      id="urgentNotifications"
+                      checked={urgentNotifications}
+                      onCheckedChange={handleUrgentNotificationsChange}
+                      className="data-[state=checked]:bg-red-500"
+                    />
+                  </div>
+                  
+                  {urgentNotifications && (
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={testUrgentNotification}
+                        className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
+                      >
+                        🚨 Test Urgent Notification
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">

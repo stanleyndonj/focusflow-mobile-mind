@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +67,13 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
     }
   };
 
+  const handleSwipeDismiss = (type: 'mirror' | 'shadow', info: PanInfo) => {
+    // Dismiss if swiped up with sufficient velocity or distance
+    if (info.offset.y < -50 || info.velocity.y < -500) {
+      dismissPrompt(type);
+    }
+  };
+
   const handleAction = (action: 'mirror' | 'shadow') => {
     if (onTriggerAction) {
       onTriggerAction(action);
@@ -77,7 +84,7 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
   };
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-40 pointer-events-none">
+    <div className="fixed top-4 left-2 right-2 sm:left-4 sm:right-4 z-40 pointer-events-none">
       <AnimatePresence>
         {/* Evening Accountability Mirror Prompt */}
         {showMirrorPrompt && (
@@ -86,33 +93,43 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -50, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="pointer-events-auto mb-3"
+            className="pointer-events-auto mb-3 cursor-grab active:cursor-grabbing"
+            drag="y"
+            dragConstraints={{ top: -100, bottom: 50 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => handleSwipeDismiss('mirror', info)}
+            whileDrag={{ scale: 1.05, rotate: 1 }}
           >
-            <Card className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border-blue-500/30 backdrop-blur-md">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 bg-blue-500/20 rounded-full">
-                      <Eye className="w-5 h-5 text-blue-400" />
+            <Card className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border-blue-500/30 backdrop-blur-md relative">
+              <CardContent className="p-3 sm:p-4">
+                {/* Swipe indicator */}
+                <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-blue-400/40 rounded-full mb-2" />
+                
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="p-1.5 sm:p-2 bg-blue-500/20 rounded-full flex-shrink-0">
+                      <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-blue-100">Evening Reflection</h3>
-                        <Badge variant="secondary" className="text-xs">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
+                        <h3 className="font-semibold text-blue-100 text-sm sm:text-base">Evening Reflection</h3>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
                           <Clock className="w-3 h-3 mr-1" />
                           Perfect Time
                         </Badge>
                       </div>
-                      <p className="text-sm text-blue-200/80">
+                      <p className="text-xs sm:text-sm text-blue-200/80 line-clamp-2">
                         How did your day go? Take a moment to reflect in your Accountability Mirror.
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-3">
+                  
+                  {/* Mobile-optimized action buttons */}
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
                     <Button
                       size="sm"
                       onClick={() => handleAction('mirror')}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
                     >
                       Reflect
                     </Button>
@@ -120,11 +137,17 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
                       size="sm"
                       variant="ghost"
                       onClick={() => dismissPrompt('mirror')}
-                      className="text-blue-300 hover:text-blue-100"
+                      className="text-blue-300 hover:text-blue-100 hover:bg-blue-500/20 p-1 h-7 w-7 sm:h-8 sm:w-8"
+                      aria-label="Dismiss notification"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                   </div>
+                </div>
+                
+                {/* Swipe hint text */}
+                <div className="text-center mt-2 pt-2 border-t border-blue-500/20">
+                  <p className="text-xs text-blue-300/60">Swipe up to dismiss</p>
                 </div>
               </CardContent>
             </Card>
@@ -138,33 +161,43 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -50, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300, delay: 0.1 }}
-            className="pointer-events-auto"
+            className="pointer-events-auto cursor-grab active:cursor-grabbing"
+            drag="y"
+            dragConstraints={{ top: -100, bottom: 50 }}
+            dragElastic={0.2}
+            onDragEnd={(_, info) => handleSwipeDismiss('shadow', info)}
+            whileDrag={{ scale: 1.05, rotate: -1 }}
           >
-            <Card className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border-purple-500/30 backdrop-blur-md">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 bg-purple-500/20 rounded-full">
-                      <Sword className="w-5 h-5 text-purple-400" />
+            <Card className="bg-gradient-to-r from-purple-500/20 to-purple-600/20 border-purple-500/30 backdrop-blur-md relative">
+              <CardContent className="p-3 sm:p-4">
+                {/* Swipe indicator */}
+                <div className="absolute top-1 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-purple-400/40 rounded-full mb-2" />
+                
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="p-1.5 sm:p-2 bg-purple-500/20 rounded-full flex-shrink-0">
+                      <Sword className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-purple-100">Shadow Challenge</h3>
-                        <Badge variant="secondary" className="text-xs">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
+                        <h3 className="font-semibold text-purple-100 text-sm sm:text-base">Shadow Challenge</h3>
+                        <Badge variant="secondary" className="text-xs flex-shrink-0">
                           <Sparkles className="w-3 h-3 mr-1" />
                           New Day
                         </Badge>
                       </div>
-                      <p className="text-sm text-purple-200/80">
+                      <p className="text-xs sm:text-sm text-purple-200/80 line-clamp-2">
                         Ready to duel your shadow self? Set today's challenge and prove your worth!
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-3">
+                  
+                  {/* Mobile-optimized action buttons */}
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2 flex-shrink-0">
                     <Button
                       size="sm"
                       onClick={() => handleAction('shadow')}
-                      className="bg-purple-500 hover:bg-purple-600 text-white"
+                      className="bg-purple-500 hover:bg-purple-600 text-white text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
                     >
                       Challenge
                     </Button>
@@ -172,11 +205,17 @@ const DailyTriggers: React.FC<DailyTriggersProps> = ({ onTriggerAction }) => {
                       size="sm"
                       variant="ghost"
                       onClick={() => dismissPrompt('shadow')}
-                      className="text-purple-300 hover:text-purple-100"
+                      className="text-purple-300 hover:text-purple-100 hover:bg-purple-500/20 p-1 h-7 w-7 sm:h-8 sm:w-8"
+                      aria-label="Dismiss notification"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                   </div>
+                </div>
+                
+                {/* Swipe hint text */}
+                <div className="text-center mt-2 pt-2 border-t border-purple-500/20">
+                  <p className="text-xs text-purple-300/60">Swipe up to dismiss</p>
                 </div>
               </CardContent>
             </Card>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useVisionBoard } from '@/contexts/VisionBoardContext';
-import { Plus, Pencil, Trash, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash, AlertCircle, Grid, Calendar, BookOpen, Palette, ListTodo } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isValid, parseISO } from 'date-fns';
@@ -10,11 +10,19 @@ import VisionEntryDialog from '@/components/vision/VisionEntryDialog';
 import DeleteConfirmDialog from '@/components/vision/DeleteConfirmDialog';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { X, Calendar, Check, Target, Sparkles } from 'lucide-react';
+import { X, Check, Target, Sparkles } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CountdownClock from '@/components/vision/CountdownClock';
+import ProgressLinkedImage from '@/components/vision/ProgressLinkedImage';
+import ThemeSelector, { VISION_BOARD_THEMES, VisionBoardTheme } from '@/components/vision/ThemeSelector';
+import TimelineView from '@/components/vision/TimelineView';
+import ManifestationJournal from '@/components/vision/ManifestationJournal';
+import { useTasks } from '@/contexts/TaskContext';
 
 const VisionBoardPage: React.FC = () => {
   const { state, deleteEntry, updateEntry } = useVisionBoard();
+  const { state: taskState } = useTasks();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -23,6 +31,10 @@ const VisionBoardPage: React.FC = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [completionDate, setCompletionDate] = useState<string>("");
   const [reflectionNote, setReflectionNote] = useState<string>("");
+  const [currentView, setCurrentView] = useState<'grid' | 'timeline'>('grid');
+  const [selectedTheme, setSelectedTheme] = useState<string>('minimal');
+  const [showJournal, setShowJournal] = useState(false);
+  const [journalEntry, setJournalEntry] = useState<any>(null);
 
   const handleAddClick = () => {
     setEditingEntry(null);
@@ -146,96 +158,217 @@ const VisionBoardPage: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <AnimatePresence>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
-                {state.entries.map((entry, index) => (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="group relative"
-                  >
-                    <div 
-                      className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 cursor-pointer transform hover:scale-[1.02]"
-                      onClick={() => handleEntryClick(entry)}
+            <>
+              {/* Enhanced Control Bar */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  {/* View Toggle */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={currentView === 'grid' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentView('grid')}
+                      className="flex items-center gap-2"
                     >
-                      {/* Enhanced Image Section */}
-                      {entry.imageUrl && (
-                        <div className="relative h-48 overflow-hidden">
-                          <img 
-                            src={entry.imageUrl} 
-                            alt={entry.title} 
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          
-                          {/* Completion Badge */}
-                          {entry.completed && (
-                            <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-2 shadow-lg">
-                              <Check size={16} />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Enhanced Content Section */}
-                      <div className="p-6 space-y-4">
-                        <div>
-                          <h3 className="font-bold text-lg text-foreground mb-2 line-clamp-2 group-hover:text-focus-600 transition-colors">
-                            {entry.title}
-                          </h3>
-                          <p className="text-muted-foreground text-sm line-clamp-3 leading-relaxed">
-                            {entry.description}
-                          </p>
-                        </div>
+                      <Grid className="h-4 w-4" />
+                      Grid View
+                    </Button>
+                    <Button
+                      variant={currentView === 'timeline' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentView('timeline')}
+                      className="flex items-center gap-2"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      Timeline
+                    </Button>
+                  </div>
+
+                  {/* Theme Selector - Compact */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">Theme:</span>
+                    </div>
+                    <ThemeSelector
+                      selectedTheme={selectedTheme}
+                      onThemeChange={setSelectedTheme}
+                      compact
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content Area */}
+              {currentView === 'timeline' ? (
+                <TimelineView
+                  entries={state.entries}
+                  onEntryClick={handleEntryClick}
+                  theme={selectedTheme}
+                />
+              ) : (
+                <div className="space-y-6">
+                  {/* Enhanced Grid View */}
+                  <AnimatePresence>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+                      {state.entries.map((entry, index) => {
+                        const selectedThemeData = VISION_BOARD_THEMES.find(t => t.id === selectedTheme) || VISION_BOARD_THEMES[0];
                         
-                        {/* Category Badge */}
-                        {entry.category && (
-                          <div className="inline-flex items-center">
-                            <span className="px-3 py-1.5 text-xs font-medium rounded-full bg-gradient-to-r from-focus-100 to-focus-50 text-focus-700 dark:from-focus-900 dark:to-focus-800 dark:text-focus-300 border border-focus-200 dark:border-focus-700">
-                              {entry.category}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Enhanced Footer */}
-                        <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-700">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar size={14} />
-                            <span>
-                              {entry.createdAt ? 
-                                (() => {
-                                  try {
-                                    const date = parseISO(entry.createdAt);
-                                    return isValid(date) ? format(date, 'MMM d, yyyy') : 'No date';
-                                  } catch (error) {
-                                    console.error('Invalid date format:', entry.createdAt);
-                                    return 'No date';
-                                  }
-                                })() 
-                                : 'No date'}
-                            </span>
-                          </div>
-                          
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full hover:bg-focus-100 text-gray-500 hover:text-focus-600 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditClick(entry);
-                              }}
+                        return (
+                          <motion.div
+                            key={entry.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.3, delay: index * 0.1 }}
+                            className="group relative"
+                          >
+                            <div 
+                              className={`${selectedThemeData.gradients.card} rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border cursor-pointer transform hover:scale-[1.02]`}
+                              style={{ borderColor: selectedThemeData.colors.border }}
+                              onClick={() => handleEntryClick(entry)}
                             >
-                              <Pencil size={14} />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
+                              {/* Enhanced Image Section with Progress-Linked Updates */}
+                              {entry.imageUrl && (
+                                <div className="relative h-48 overflow-hidden">
+                                  <ProgressLinkedImage
+                                    imageUrl={entry.imageUrl}
+                                    progress={entry.progressPercentage || 0}
+                                    title={entry.title}
+                                    className="w-full h-full"
+                                    showOverlay={true}
+                                  />
+                                  
+                                  {/* Completion Badge */}
+                                  {entry.completed && (
+                                    <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-2 shadow-lg">
+                                      <Check size={16} />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Enhanced Content Section */}
+                              <div className="p-6 space-y-4">
+                                <div>
+                                  <h3 
+                                    className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-focus-600 transition-colors"
+                                    style={{ color: selectedThemeData.colors.text }}
+                                  >
+                                    {entry.title}
+                                  </h3>
+                                  <p 
+                                    className="text-sm line-clamp-3 leading-relaxed"
+                                    style={{ color: selectedThemeData.colors.secondary }}
+                                  >
+                                    {entry.description}
+                                  </p>
+                                </div>
+                                
+                                {/* Countdown Clock for Target Dates */}
+                                {entry.targetDate && (
+                                  <div className="my-3">
+                                    <CountdownClock
+                                      targetDate={entry.targetDate}
+                                      title="Time Left"
+                                      size="small"
+                                      theme={selectedTheme === 'minimal' ? 'minimal' : selectedTheme === 'vibrant' ? 'vibrant' : 'default'}
+                                    />
+                                  </div>
+                                )}
+                                
+                                {/* Category Badge */}
+                                {entry.category && (
+                                  <div className="inline-flex items-center">
+                                    <span 
+                                      className="px-3 py-1.5 text-xs font-medium rounded-full border"
+                                      style={{ 
+                                        backgroundColor: selectedThemeData.colors.accent + '20',
+                                        color: selectedThemeData.colors.accent,
+                                        borderColor: selectedThemeData.colors.accent + '40'
+                                      }}
+                                    >
+                                      {entry.category}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {/* Progress Bar */}
+                                <div className="space-y-2">
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span style={{ color: selectedThemeData.colors.secondary }}>Progress</span>
+                                    <span style={{ color: selectedThemeData.colors.primary }}>{entry.progressPercentage || 0}%</span>
+                                  </div>
+                                  <div 
+                                    className="h-2 rounded-full overflow-hidden"
+                                    style={{ backgroundColor: selectedThemeData.colors.border }}
+                                  >
+                                    <div 
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{ 
+                                        width: `${entry.progressPercentage || 0}%`,
+                                        backgroundColor: selectedThemeData.colors.accent
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Linked Tasks Preview */}
+                                {entry.linkedTaskIds && entry.linkedTaskIds.length > 0 && (
+                                  <div className="flex items-center gap-2 text-xs" style={{ color: selectedThemeData.colors.secondary }}>
+                                    <ListTodo className="h-3 w-3" />
+                                    <span>{entry.linkedTaskIds.length} linked task{entry.linkedTaskIds.length > 1 ? 's' : ''}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Enhanced Footer */}
+                                <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: selectedThemeData.colors.border }}>
+                                  <div className="flex items-center gap-2 text-xs" style={{ color: selectedThemeData.colors.secondary }}>
+                                    <Calendar size={14} />
+                                    <span>
+                                      {entry.createdAt ? 
+                                        (() => {
+                                          try {
+                                            const date = parseISO(entry.createdAt);
+                                            return isValid(date) ? format(date, 'MMM d, yyyy') : 'No date';
+                                          } catch (error) {
+                                            console.error('Invalid date format:', entry.createdAt);
+                                            return 'No date';
+                                          }
+                                        })() 
+                                        : 'No date'}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-full hover:bg-focus-100 text-gray-500 hover:text-focus-600 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setJournalEntry(entry);
+                                        setShowJournal(true);
+                                      }}
+                                    >
+                                      <BookOpen size={14} />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-full hover:bg-focus-100 text-gray-500 hover:text-focus-600 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditClick(entry);
+                                      }}
+                                    >
+                                      <Pencil size={14} />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 rounded-full hover:bg-red-100 text-gray-500 hover:text-red-600 transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteClick(entry.id);
@@ -248,11 +381,34 @@ const VisionBoardPage: React.FC = () => {
                       </div>
                     </div>
                   </motion.div>
-                ))}
-              </div>
-            </AnimatePresence>
+                        );
+                      })}
+                    </div>
+                  </AnimatePresence>
+                </div>
+              )}
+            </>
           )}
         </div>
+
+        {/* Manifestation Journal Modal */}
+        <Dialog open={showJournal} onOpenChange={setShowJournal}>
+          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto p-0 bg-white rounded-2xl shadow-2xl border-0">
+            <DialogTitle className="sr-only">Manifestation Journal</DialogTitle>
+            <div className="p-6">
+              {journalEntry && (
+                <ManifestationJournal
+                  entry={journalEntry}
+                  onUpdateEntry={(updatedEntry) => {
+                    updateEntry(updatedEntry);
+                    setJournalEntry(updatedEntry);
+                  }}
+                  theme={selectedTheme}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         
         {/* Enhanced Dialogs */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>

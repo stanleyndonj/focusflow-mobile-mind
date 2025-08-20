@@ -686,12 +686,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         )
       };
 
-    case 'FORCE_UPDATE':
-      // Force a re-render by creating a new state object
-      return {
-        ...state,
-        loading: false // Ensure loading is false after data load
-      };
+
 
     default:
       return state;

@@ -36,107 +36,119 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
   const activeQuests = quests.filter(quest => !quest.isCompleted);
   const completedQuests = quests.filter(quest => quest.isCompleted);
 
-  // Initialize daily quests if none exist
+  // Enhanced quest generation system - unlimited and persistent
   useEffect(() => {
-    const initializeDailyQuests = () => {
+    const initializeUnlimitedQuests = () => {
       const today = new Date().toISOString().split('T')[0];
-      const todayQuests = quests.filter(quest => quest.createdAt.startsWith(today));
+      const activeQuestsCount = activeQuests.length;
       
-      // Only create new quests if none exist for today
-      if (todayQuests.length === 0) {
-        generateDailyQuests();
+      // Always maintain at least 8-12 active quests
+      if (activeQuestsCount < 8) {
+        const questsToGenerate = 12 - activeQuestsCount;
+        generateDynamicQuests(questsToGenerate);
       }
     };
     
-    const generateDailyQuests = () => {
+    const generateDynamicQuests = (count: number) => {
       const today = new Date().toISOString().split('T')[0];
       const todaysTasks = tasks.filter(task => task.createdAt.startsWith(today));
       const completedTasks = todaysTasks.filter(task => task.completed);
       const totalFocusTime = todaysTasks.reduce((total, task) => total + (task.totalTimeSpent || 0), 0);
       const focusMinutes = Math.round(totalFocusTime / (1000 * 60));
-
-      // Create real daily quests using GameContext
-      const dailyQuests = [
-        {
-          id: `focus_${today}`,
-          title: 'Focus Master',
-          description: 'Complete 25 minutes of focused work',
-          type: 'focus_session' as const,
-          difficulty: 'easy' as const,
-          xpReward: 50,
-          coinReward: 10,
-          requirements: {
-            target: 25,
-            current: focusMinutes
-          },
-          isCompleted: false,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: today
-        },
-        {
-          id: `tasks_${today}`,
-          title: 'Task Crusher',
-          description: 'Complete 3 tasks today',
-          type: 'task_completion' as const,
-          difficulty: 'medium' as const,
-          xpReward: 75,
-          coinReward: 15,
-          requirements: {
-            target: 3,
-            current: completedTasks.length
-          },
-          isCompleted: false,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: today
-        },
-        {
-          id: `streak_${today}`,
-          title: 'Productivity Streak',
-          description: 'Maintain a 7-day streak',
-          type: 'streak' as const,
-          difficulty: 'hard' as const,
-          xpReward: 150,
-          coinReward: 30,
-          requirements: {
-            target: 7,
-            current: gameStats.streak
-          },
-          isCompleted: false,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: today
-        },
-        {
-          id: `deep_${today}`,
-          title: 'Deep Work Champion',
-          description: 'Focus for 2 hours straight',
-          type: 'focus_session' as const,
-          difficulty: 'legendary' as const,
-          xpReward: 300,
-          coinReward: 50,
-          requirements: {
-            target: 120,
-            current: focusMinutes
-          },
-          isCompleted: false,
-          isActive: true,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          createdAt: today
-        }
+      
+      // Comprehensive quest templates for unlimited generation
+      const questTemplates = [
+        // Focus-based quests
+        { title: 'Quick Focus', description: 'Complete 15 minutes of focused work', type: 'focus_session', difficulty: 'easy', target: 15, xp: 30, coins: 8 },
+        { title: 'Focus Master', description: 'Complete 25 minutes of focused work', type: 'focus_session', difficulty: 'easy', target: 25, xp: 50, coins: 10 },
+        { title: 'Power Hour', description: 'Focus for 60 minutes straight', type: 'focus_session', difficulty: 'medium', target: 60, xp: 100, coins: 20 },
+        { title: 'Deep Work Session', description: 'Focus for 90 minutes straight', type: 'focus_session', difficulty: 'hard', target: 90, xp: 200, coins: 35 },
+        { title: 'Deep Work Champion', description: 'Focus for 2 hours straight', type: 'focus_session', difficulty: 'legendary', target: 120, xp: 300, coins: 50 },
+        { title: 'Marathon Focus', description: 'Focus for 3 hours today', type: 'focus_session', difficulty: 'legendary', target: 180, xp: 500, coins: 80 },
+        
+        // Task completion quests
+        { title: 'Task Starter', description: 'Complete 1 task today', type: 'task_completion', difficulty: 'easy', target: 1, xp: 25, coins: 5 },
+        { title: 'Task Crusher', description: 'Complete 3 tasks today', type: 'task_completion', difficulty: 'medium', target: 3, xp: 75, coins: 15 },
+        { title: 'Task Dominator', description: 'Complete 5 tasks today', type: 'task_completion', difficulty: 'hard', target: 5, xp: 150, coins: 25 },
+        { title: 'Task Machine', description: 'Complete 7 tasks today', type: 'task_completion', difficulty: 'legendary', target: 7, xp: 250, coins: 40 },
+        { title: 'Task Overlord', description: 'Complete 10 tasks today', type: 'task_completion', difficulty: 'legendary', target: 10, xp: 400, coins: 65 },
+        
+        // Streak-based quests
+        { title: 'Consistency Start', description: 'Maintain a 3-day streak', type: 'streak', difficulty: 'easy', target: 3, xp: 60, coins: 12 },
+        { title: 'Streak Builder', description: 'Maintain a 7-day streak', type: 'streak', difficulty: 'medium', target: 7, xp: 150, coins: 30 },
+        { title: 'Streak Master', description: 'Maintain a 14-day streak', type: 'streak', difficulty: 'hard', target: 14, xp: 300, coins: 50 },
+        { title: 'Streak Legend', description: 'Maintain a 30-day streak', type: 'streak', difficulty: 'legendary', target: 30, xp: 600, coins: 100 },
+        
+        // Daily goal quests
+        { title: 'Morning Warrior', description: 'Complete 2 tasks before noon', type: 'daily_goal', difficulty: 'medium', target: 2, xp: 80, coins: 16 },
+        { title: 'Early Bird', description: 'Start working before 9 AM', type: 'daily_goal', difficulty: 'easy', target: 1, xp: 40, coins: 8 },
+        { title: 'Night Owl', description: 'Complete a task after 8 PM', type: 'daily_goal', difficulty: 'easy', target: 1, xp: 35, coins: 7 },
+        { title: 'Productivity Sprint', description: 'Complete 3 tasks in 2 hours', type: 'daily_goal', difficulty: 'hard', target: 3, xp: 180, coins: 30 },
+        
+        // Special challenge quests
+        { title: 'Zero Procrastination', description: 'Complete all planned tasks today', type: 'daily_goal', difficulty: 'legendary', target: 100, xp: 500, coins: 75 },
+        { title: 'Focus Flow', description: 'Have 3 focus sessions today', type: 'focus_session', difficulty: 'medium', target: 3, xp: 120, coins: 24 },
+        { title: 'Task Variety', description: 'Complete tasks from 3 different categories', type: 'daily_goal', difficulty: 'medium', target: 3, xp: 90, coins: 18 },
+        { title: 'Speed Runner', description: 'Complete 5 tasks in under 3 hours', type: 'daily_goal', difficulty: 'hard', target: 5, xp: 200, coins: 35 },
+        
+        // Weekly challenges
+        { title: 'Weekly Warrior', description: 'Complete 20 tasks this week', type: 'task_completion', difficulty: 'hard', target: 20, xp: 400, coins: 60 },
+        { title: 'Focus Week', description: 'Focus for 10 hours this week', type: 'focus_session', difficulty: 'hard', target: 600, xp: 350, coins: 55 },
+        
+        // Habit-building quests
+        { title: 'Habit Starter', description: 'Do the same productive activity 3 days in a row', type: 'streak', difficulty: 'medium', target: 3, xp: 100, coins: 20 },
+        { title: 'Routine Master', description: 'Follow your morning routine for 5 days', type: 'streak', difficulty: 'hard', target: 5, xp: 180, coins: 32 }
       ];
+      
+      // Generate random quests from templates
+      const newQuests = [];
+      for (let i = 0; i < count; i++) {
+        const template = questTemplates[Math.floor(Math.random() * questTemplates.length)];
+        const questId = `quest_${Date.now()}_${i}`;
+        
+        // Calculate current progress based on quest type
+        let currentProgress = 0;
+        if (template.type === 'focus_session') {
+          currentProgress = focusMinutes;
+        } else if (template.type === 'task_completion') {
+          currentProgress = completedTasks.length;
+        } else if (template.type === 'streak') {
+          currentProgress = gameStats.streak || 0;
+        } else if (template.type === 'daily_goal') {
+          currentProgress = Math.floor(Math.random() * template.target); // Simulate progress
+        }
+        
+        const newQuest = {
+          id: questId,
+          title: template.title,
+          description: template.description,
+          type: template.type as Quest['type'],
+          difficulty: template.difficulty as Quest['difficulty'],
+          xpReward: template.xp,
+          coinReward: template.coins,
+          requirements: {
+            target: template.target,
+            current: currentProgress
+          },
+          isCompleted: currentProgress >= template.target,
+          isActive: true,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          createdAt: new Date().toISOString()
+        };
+        
+        newQuests.push(newQuest);
+      }
 
       // Create quests in GameContext
-      dailyQuests.forEach(quest => {
+      newQuests.forEach(quest => {
         createQuest(quest);
       });
       
-      console.log(`✅ Created ${dailyQuests.length} daily quests for ${today}`);
+      console.log(`✅ Generated ${newQuests.length} new dynamic quests`);
     };
 
-    initializeDailyQuests();
-  }, [tasks, gameStats.streak]);
+    initializeUnlimitedQuests();
+  }, [tasks, gameStats.streak, activeQuests.length]);
 
   // Real-time quest progress tracking
   useEffect(() => {
@@ -181,17 +193,7 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
         
         // Complete quest if target reached
         if (shouldComplete && !quest.isCompleted) {
-          completeQuest(quest.id);
-          setShowCompletionEffect(quest.id);
-          
-          // Award rewards
-          addCoins(quest.coinReward);
-          addXP(quest.xpReward);
-          
-          console.log(`🎉 Quest completed: ${quest.title} (+${quest.coinReward} coins, +${quest.xpReward} XP)`);
-          
-          // Clear completion effect after animation
-          setTimeout(() => setShowCompletionEffect(null), 3000);
+          handleCompleteQuest(quest.id);
         }
       });
     };

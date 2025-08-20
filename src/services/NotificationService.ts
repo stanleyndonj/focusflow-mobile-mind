@@ -29,12 +29,15 @@ class NotificationService {
     {
       id: 'urgent-notifications',
       name: 'Urgent Notifications',
-      description: 'Notifications for urgent reminders',
-      importance: 5, // High importance
-      visibility: 1, // Public
+      description: 'High-priority notifications with continuous alerts',
+      importance: 5, // Max importance
+      visibility: 1, // Public - show on lock screen
       sound: 'urgent.wav',
       vibration: true,
-      lights: true
+      lights: true,
+      lockscreenVisibility: 1, // Show full notification on lock screen
+      enableVibration: true,
+      enableLights: true
     }
   ];
 
@@ -85,16 +88,46 @@ class NotificationService {
     }
   }
 
-  private registerListeners() {
+  private async registerListeners() {
     try {
-      // Listen for notification received when app is in foreground
-      LocalNotifications.addListener('localNotificationReceived', (notification) => {
-        console.log('Notification received in foreground:', notification);
+      // Listen for notification actions
+      LocalNotifications.addListener('localNotificationActionPerformed', async (notificationAction: ActionPerformed) => {
+        console.log('Notification action performed:', notificationAction);
+        
+        const { actionId, notification } = notificationAction;
+        const { extra } = notification;
+        
+        // Handle different actions
+        if (actionId === 'dismiss') {
+          console.log('Urgent notification dismissed');
+          // Cancel any pending reminders for this notification
+          if (extra?.isUrgent) {
+            await this.cancelUrgentReminders(notification.id);
+          }
+        } else if (actionId === 'snooze') {
+          console.log('Urgent notification snoozed');
+          // Schedule a new notification 5 minutes from now
+          const snoozeTime = new Date(Date.now() + 5 * 60 * 1000);
+          await this.scheduleTaskNotification(
+            extra?.taskId || 'snoozed-task',
+            notification.title.replace('🚨 URGENT: ', ''),
+            notification.body.replace('⚠️ ', '').replace(' - Tap to dismiss', ''),
+            snoozeTime,
+            true
+          );
+          // Cancel original reminders
+          await this.cancelUrgentReminders(notification.id);
+        }
       });
 
-      // Listen for notification action (e.g., when user taps the notification)
-      LocalNotifications.addListener('localNotificationActionPerformed', (action: ActionPerformed) => {
-        console.log('Notification action performed:', action);
+      // Listen for notification received (when app is in foreground)
+      LocalNotifications.addListener('localNotificationReceived', (notification) => {
+        console.log('Notification received in foreground:', notification);
+        
+        // For urgent notifications in foreground, show in-app alert
+        if (notification.extra?.isUrgent && localStorage.getItem('urgentNotifications') === 'true') {
+          this.showInAppUrgentAlert(notification.title, notification.body);
+        }
       });
 
       // Listen for app resume event to check for pending notifications
@@ -109,6 +142,73 @@ class NotificationService {
     } catch (error) {
       console.error('Error registering notification listeners:', error);
     }
+  }
+
+  // Cancel urgent reminder notifications
+  private async cancelUrgentReminders(baseId: number): Promise<void> {
+    try {
+      const reminders = [baseId + 1000, baseId + 2000, baseId + 3000];
+      await LocalNotifications.cancel({ notifications: reminders.map(id => ({ id })) });
+      console.log('Cancelled urgent reminder notifications');
+    } catch (error) {
+      console.error('Error cancelling urgent reminders:', error);
+    }
+  }
+
+  // Show in-app urgent alert for foreground notifications
+  private showInAppUrgentAlert(title: string, body: string): void {
+    // Create a persistent alert overlay
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50';
+    alertDiv.innerHTML = `
+      <div class="bg-red-600 text-white p-6 rounded-lg shadow-xl max-w-sm mx-4 animate-pulse">
+        <div class="flex items-center mb-4">
+          <span class="text-2xl mr-2">🚨</span>
+          <h3 class="text-lg font-bold">URGENT TASK</h3>
+        </div>
+        <h4 class="font-semibold mb-2">${title.replace('🚨 URGENT: ', '')}</h4>
+        <p class="text-sm mb-4">${body.replace('⚠️ ', '').replace(' - Tap to dismiss', '')}</p>
+        <div class="flex gap-2">
+          <button id="urgentDismiss" class="bg-white text-red-600 px-4 py-2 rounded font-semibold flex-1">
+            Dismiss
+          </button>
+          <button id="urgentSnooze" class="bg-red-800 text-white px-4 py-2 rounded font-semibold flex-1">
+            Snooze 5min
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Play urgent sound and vibrate
+    const audio = new Audio('/sounds/urgent.wav');
+    audio.volume = 0.8;
+    audio.play().catch(e => console.log('Could not play urgent sound:', e));
+    
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+    
+    // Handle button clicks
+    const dismissBtn = alertDiv.querySelector('#urgentDismiss');
+    const snoozeBtn = alertDiv.querySelector('#urgentSnooze');
+    
+    dismissBtn?.addEventListener('click', () => {
+      document.body.removeChild(alertDiv);
+    });
+    
+    snoozeBtn?.addEventListener('click', () => {
+      document.body.removeChild(alertDiv);
+      // Could trigger snooze logic here
+    });
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+      if (document.body.contains(alertDiv)) {
+        document.body.removeChild(alertDiv);
+      }
+    }, 30000);
   }
 
   private async checkPendingNotifications() {
@@ -183,7 +283,7 @@ class NotificationService {
     if (!hasPermission) {
       console.warn('Cannot schedule notification: permission not granted');
       // Show fallback notification in browser
-      this.showBrowserNotification(title, body);
+      this.showBrowserNotification(title, body, isUrgent);
       return;
     }
     
@@ -200,31 +300,66 @@ class NotificationService {
         notificationTime.setTime(Date.now() + 5000);
       }
       
-      // Schedule the notification with exact timing
+      // Get custom sound if available
+      const customTaskSound = localStorage.getItem('customTaskSound');
+      const customTaskSoundName = localStorage.getItem('customTaskSoundName');
+      
+      // Determine sound to use
+      let soundToUse = 'beep.wav'; // default
+      if (useUrgentStyle) {
+        soundToUse = 'urgent.wav';
+      } else if (customTaskSound) {
+        soundToUse = 'custom-task-sound.mp3';
+      }
+      
+      // Schedule the notification with enhanced urgent style features
       await LocalNotifications.schedule({
         notifications: [
           {
             id: numericId,
-            title: title,
-            body: body,
+            title: useUrgentStyle ? `🚨 URGENT: ${title}` : title,
+            body: useUrgentStyle ? `⚠️ ${body} - Tap to dismiss` : body,
             schedule: { 
               at: notificationTime,
               allowWhileIdle: true, // Ensure delivery even in doze mode
               repeats: false // One-time notification
             },
-            sound: useUrgentStyle ? 'urgent.wav' : localStorage.getItem('customTaskSound') ? 'custom-task-sound.mp3' : 'beep.wav',
+            sound: soundToUse,
             smallIcon: 'ic_stat_focus_brain',
-            iconColor: '#8B5CF6',
+            iconColor: useUrgentStyle ? '#EF4444' : '#8B5CF6', // Red for urgent, purple for normal
             channelId: useUrgentStyle ? 'urgent-notifications' : 'task-notifications',
-            autoCancel: true,
-            ongoing: false,
+            autoCancel: !useUrgentStyle, // Urgent notifications require manual dismissal
+            ongoing: useUrgentStyle, // Keep urgent notifications visible
+            priority: useUrgentStyle ? 2 : 1, // Max priority for urgent
+            visibility: 1, // Show on lock screen
             extra: {
               taskId: taskId,
-              isUrgent: useUrgentStyle
-            }
+              isUrgent: useUrgentStyle,
+              customSound: customTaskSoundName || null
+            },
+            // Enhanced urgent notification features
+            ...(useUrgentStyle && {
+              actions: [
+                {
+                  id: 'dismiss',
+                  title: 'Dismiss',
+                  destructive: false
+                },
+                {
+                  id: 'snooze',
+                  title: 'Snooze 5min',
+                  destructive: false
+                }
+              ]
+            })
           }
         ]
       });
+      
+      // For urgent notifications, also schedule repeating reminders until dismissed
+      if (useUrgentStyle) {
+        await this.scheduleUrgentReminders(numericId, title, body, notificationTime);
+      }
       
       console.log(`Scheduled ${useUrgentStyle ? 'urgent ' : ''}task notification for task ${taskId} at ${notificationTime.toISOString()}`);
     } catch (error) {
@@ -237,6 +372,46 @@ class NotificationService {
     }
   }
 
+  // Schedule repeating urgent reminders
+  private async scheduleUrgentReminders(baseId: number, title: string, body: string, startTime: Date): Promise<void> {
+    try {
+      // Schedule 3 follow-up reminders at 2-minute intervals
+      for (let i = 1; i <= 3; i++) {
+        const reminderTime = new Date(startTime.getTime() + (i * 2 * 60 * 1000)); // 2, 4, 6 minutes later
+        const reminderId = baseId + (i * 1000); // Ensure unique IDs
+        
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: reminderId,
+              title: `🔔 REMINDER: ${title}`,
+              body: `Still pending: ${body}`,
+              schedule: { 
+                at: reminderTime,
+                allowWhileIdle: true
+              },
+              sound: 'urgent.wav',
+              smallIcon: 'ic_stat_focus_brain',
+              iconColor: '#EF4444',
+              channelId: 'urgent-notifications',
+              autoCancel: false,
+              ongoing: true,
+              priority: 2,
+              extra: {
+                isUrgentReminder: true,
+                originalId: baseId
+              }
+            }
+          ]
+        });
+      }
+      
+      console.log('Scheduled urgent reminder notifications');
+    } catch (error) {
+      console.error('Error scheduling urgent reminders:', error);
+    }
+  }
+
   private async checkAndRequestPermission(): Promise<boolean> {
     if (this.hasPermission) {
       return true;
@@ -245,17 +420,81 @@ class NotificationService {
     return await this.requestPermissions();
   }
 
-  private showBrowserNotification(title: string, body: string) {
+  private showBrowserNotification(title: string, body: string, isUrgent: boolean = false) {
     // Fallback to browser notifications if available
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/favicon.ico' });
+      const notification = new Notification(
+        isUrgent ? `🚨 URGENT: ${title}` : title, 
+        { 
+          body: isUrgent ? `⚠️ ${body} - Click to dismiss` : body, 
+          icon: '/favicon.ico',
+          requireInteraction: isUrgent, // Keep urgent notifications visible until clicked
+          tag: isUrgent ? 'urgent-task' : 'task-notification' // Replace previous notifications
+        }
+      );
+      
+      // For urgent notifications, play continuous sound and vibration
+      if (isUrgent && localStorage.getItem('urgentNotifications') === 'true') {
+        this.playUrgentBrowserAlert(notification);
+      }
     } else if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
-          new Notification(title, { body, icon: '/favicon.ico' });
+          this.showBrowserNotification(title, body, isUrgent);
         }
       });
     }
+  }
+
+  private playUrgentBrowserAlert(notification: Notification) {
+    // Play urgent sound repeatedly until notification is dismissed
+    let alertInterval: NodeJS.Timeout;
+    let vibrationInterval: NodeJS.Timeout;
+    
+    const playUrgentSound = () => {
+      // Create audio element for urgent sound
+      const audio = new Audio('/sounds/urgent.wav');
+      audio.volume = 0.8;
+      audio.play().catch(e => console.log('Could not play urgent sound:', e));
+    };
+    
+    const vibrateDevice = () => {
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]); // Urgent vibration pattern
+      }
+    };
+    
+    // Play sound and vibrate immediately
+    playUrgentSound();
+    vibrateDevice();
+    
+    // Continue playing sound every 3 seconds
+    alertInterval = setInterval(() => {
+      playUrgentSound();
+    }, 3000);
+    
+    // Continue vibrating every 5 seconds
+    vibrationInterval = setInterval(() => {
+      vibrateDevice();
+    }, 5000);
+    
+    // Stop when notification is closed
+    notification.onclose = () => {
+      clearInterval(alertInterval);
+      clearInterval(vibrationInterval);
+    };
+    
+    notification.onclick = () => {
+      clearInterval(alertInterval);
+      clearInterval(vibrationInterval);
+      notification.close();
+    };
+    
+    // Auto-stop after 2 minutes to prevent infinite alerts
+    setTimeout(() => {
+      clearInterval(alertInterval);
+      clearInterval(vibrationInterval);
+    }, 120000);
   }
 
   async scheduleTimerNotification(title: string, body: string, scheduledTime: Date) {
@@ -307,11 +546,18 @@ class NotificationService {
     }
   }
 
-  async cancelNotification(taskId: string) {
+  async cancelNotification(taskIdOrId: string | number) {
     try {
-      const notificationId = parseInt(taskId.replace(/\D/g, '').slice(0, 8) || '1000');
+      let notificationId: number;
+      if (typeof taskIdOrId === 'string') {
+        notificationId = parseInt(taskIdOrId.replace(/\D/g, '').slice(0, 8) || '1000');
+        console.log(`Cancelled notification for task ${taskIdOrId}`);
+      } else {
+        notificationId = taskIdOrId;
+        console.log(`Cancelled notification with id: ${notificationId}`);
+      }
+      
       await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
-      console.log(`Cancelled notification for task ${taskId}`);
       return true;
     } catch (error) {
       console.error('Error cancelling notification:', error);
@@ -323,7 +569,9 @@ class NotificationService {
     try {
       const pending = await LocalNotifications.getPending();
       if (pending.notifications.length > 0) {
-        await LocalNotifications.cancel({ notifications: pending.notifications });
+        for (const notification of pending.notifications) {
+          await this.cancelNotification(notification.id);
+        }
       }
       console.log('Cancelled all notifications');
       return true;
@@ -333,8 +581,8 @@ class NotificationService {
     }
   }
 
-  // Method to update custom sound for notifications (called from SoundService)
-  async updateCustomSound(type: 'timer' | 'task', soundName: string) {
+  // Update custom sound for notifications
+  async updateCustomSound(type: 'timer' | 'task', soundName: string): Promise<boolean> {
     try {
       if (!Capacitor.isNativePlatform()) {
         return true; // Only needed for native platforms
@@ -366,6 +614,18 @@ class NotificationService {
       console.error(`Error updating ${type} custom sound:`, error);
       return false;
     }
+  }
+
+  // Test urgent notification (for settings testing)
+  async testUrgentNotification(): Promise<void> {
+    const testTime = new Date(Date.now() + 2000); // 2 seconds from now
+    await this.scheduleTaskNotification(
+      'test-urgent',
+      'Test Urgent Notification',
+      'This is a test of the urgent notification system',
+      testTime,
+      true
+    );
   }
 
   // Get current permission status
