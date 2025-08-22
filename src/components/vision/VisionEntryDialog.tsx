@@ -566,38 +566,47 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
   };
   
   // Reset form when dialog opens/closes or edit entry changes
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
   useEffect(() => {
-    if (!isOpen) return;
-    
-    if (editEntry) {
-      // Basic info
-      setTitle(editEntry.title || '');
-      setDescription(editEntry.description || '');
-      setCategory(editEntry.category || 'none');
-      setImageUrl(editEntry.imageUrl);
-      setImportance(editEntry.importance || '');
-      setSuccessCriteria(editEntry.successCriteria || '');
-      setTargetDate(editEntry.targetDate ? new Date(editEntry.targetDate) : undefined);
-      
-      // Milestones
-      setMilestones(editEntry.milestones || []);
-      
-      // Journal entries
-      setJournalEntries(editEntry.journalEntries || []);
-      
-      // Media items
-      setMediaItems(editEntry.mediaItems || []);
-      
-      // Linked tasks
-      setLinkedTaskIds(editEntry.linkedTaskIds || []);
-    } else {
-      // Reset form when adding new entry
-      resetForm();
+    if (!isOpen) {
+      setHasInitialized(false);
+      return;
     }
     
-    // Always reset error message
-    setErrorMessage('');
-  }, [isOpen, editEntry]);
+    // Only initialize once when dialog opens, not on subsequent editEntry changes
+    if (!hasInitialized) {
+      if (editEntry) {
+        // Basic info
+        setTitle(editEntry.title || '');
+        setDescription(editEntry.description || '');
+        setCategory(editEntry.category || 'none');
+        setImageUrl(editEntry.imageUrl);
+        setImportance(editEntry.importance || '');
+        setSuccessCriteria(editEntry.successCriteria || '');
+        setTargetDate(editEntry.targetDate ? new Date(editEntry.targetDate) : undefined);
+        
+        // Milestones
+        setMilestones(editEntry.milestones || []);
+        
+        // Journal entries
+        setJournalEntries(editEntry.journalEntries || []);
+        
+        // Media items
+        setMediaItems(editEntry.mediaItems || []);
+        
+        // Linked tasks
+        setLinkedTaskIds(editEntry.linkedTaskIds || []);
+      } else {
+        // Reset form when adding new entry
+        resetForm();
+      }
+      
+      // Always reset error message
+      setErrorMessage('');
+      setHasInitialized(true);
+    }
+  }, [isOpen, editEntry, hasInitialized]);
   
   // Format recording time
   const formatRecordingTime = (seconds: number) => {
@@ -1021,10 +1030,12 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
                     <Label htmlFor="importance">Why This Matters (Optional)</Label>
                     <Textarea
                       id="importance"
-                      value={importance}
+                      value={importance || ''}
                       onChange={(e) => setImportance(e.target.value)}
                       placeholder="Why is this vision important to you?"
                       className="min-h-[80px]"
+                      autoComplete="off"
+                      spellCheck={true}
                     />
                   </div>
                   
@@ -1032,10 +1043,12 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
                     <Label htmlFor="successCriteria">Success Criteria (Optional)</Label>
                     <Textarea
                       id="successCriteria"
-                      value={successCriteria}
+                      value={successCriteria || ''}
                       onChange={(e) => setSuccessCriteria(e.target.value)}
                       placeholder="What does success look like for this vision?"
                       className="min-h-[80px]"
+                      autoComplete="off"
+                      spellCheck={true}
                     />
                   </div>
                   

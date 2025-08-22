@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useVisionBoard, Vision } from '@/contexts/VisionBoardContext';
-import { Plus, Grid, Calendar, BookOpen, Palette, ListTodo, Target, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Grid, Calendar, BookOpen, Palette, ListTodo, Target, Loader2, AlertCircle, Sparkles, Pencil, Trash, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/components/ui/use-toast';
 import VisionEntryDialog from '@/components/vision/VisionEntryDialog';
 import DeleteConfirmDialog from '@/components/vision/DeleteConfirmDialog';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import CountdownClock from '@/components/vision/CountdownClock';
 import ProgressLinkedImage from '@/components/vision/ProgressLinkedImage';
 import ThemeSelector, { VISION_BOARD_THEMES, VisionBoardTheme } from '@/components/vision/ThemeSelector';
@@ -16,7 +18,11 @@ import TimelineView from '@/components/vision/TimelineView';
 import ManifestationJournal from '@/components/vision/ManifestationJournal';
 import VirtualizedVisionGrid from '@/components/vision/VirtualizedVisionGrid';
 import EnhancedVisionDetailsDialog from '@/components/vision/EnhancedVisionDetailsDialog';
+import VisionPicker from '@/components/vision/VisionPicker';
+import MilestoneTiles from '@/components/vision/MilestoneTiles';
+import VisionBacklinks from '@/components/vision/VisionBacklinks';
 import { useTasks } from '@/contexts/TaskContext';
+import { format, parseISO, isValid } from 'date-fns';
 
 const VisionBoardPage: React.FC = () => {
   const { state, deleteVision, updateVision, addVision } = useVisionBoard();
@@ -31,6 +37,8 @@ const VisionBoardPage: React.FC = () => {
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal');
   const [showJournal, setShowJournal] = useState(false);
   const [journalEntry, setJournalEntry] = useState<any>(null);
+  const [completionDate, setCompletionDate] = useState('');
+  const [reflectionNote, setReflectionNote] = useState('');
 
   // Memoized visions for performance
   const activeVisions = useMemo(() => {
@@ -82,30 +90,41 @@ const VisionBoardPage: React.FC = () => {
     });
   }, [updateVision]);
 
-  const handleEntryClick = (entry: any) => {
-    setSelectedVision(entry);
-    setIsDetailModalOpen(true);
-  };
+  const handleEntryClick = useCallback((entry: any) => {
+    setJournalEntry(entry);
+    setShowJournal(true);
+  }, []);
 
-  const handleMarkAccomplished = () => {
+  const handleMarkAccomplished = useCallback(() => {
     if (selectedVision) {
       const updatedVision = {
         ...selectedVision,
-        completed: true,
-        completedAt: new Date().toISOString(),
+        status: 'completed' as const,
+        completedAt: new Date().toISOString()
       };
-      handleSaveVision(updatedVision);
-      toast({
-        title: "Vision Accomplished",
-        description: `Congratulations on achieving ${updatedVision.title}!`
-      });
+      updateVision(updatedVision);
+      setSelectedVision(null);
       setIsDetailModalOpen(false);
+      toast({
+        title: "Vision Accomplished! 🎉",
+        description: `Congratulations on achieving "${updatedVision.title}"!`
+      });
     }
-  };
+  }, [selectedVision, updateVision]);
 
   const handleCloseDetailModal = useCallback(() => {
     setIsDetailModalOpen(false);
     setSelectedVision(null);
+  }, []);
+
+  // Get theme configuration (moved outside of map to avoid hooks violation)
+  const themeConfig = useMemo(() => {
+    return VISION_BOARD_THEMES.find(t => t.id === selectedTheme) || VISION_BOARD_THEMES[0];
+  }, [selectedTheme]);
+
+  // Handle theme change (moved outside of map to avoid hooks violation)
+  const handleThemeChange = useCallback((themeId: string) => {
+    setSelectedTheme(themeId);
   }, []);
 
   // Loading and migration states
@@ -265,27 +284,18 @@ const VisionBoardPage: React.FC = () => {
 
               {/* Main Content Area */}
               {currentView === 'timeline' ? (
-                <TabsContent value="timeline">
-                  <TimelineView entries={state.entries} onEdit={(entry) => {
+                <div className="w-full">
+                  <TimelineView entries={state.entries} onEntryClick={(entry) => {
                     const vision = state.visions.find(v => v.id === entry.id);
                     if (vision) handleEditVision(vision);
                   }} />
-                </TabsContent>
+                </div>
               ) : (
                 <div className="space-y-6">
                   {/* Enhanced Grid View */}
                   <AnimatePresence>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
                       {state.entries.map((entry, index) => {
-                        // Get theme configuration
-                        const themeConfig = useMemo(() => {
-                          return VISION_BOARD_THEMES.find(t => t.id === selectedTheme) || VISION_BOARD_THEMES[0];
-                        }, [selectedTheme]);
-
-                        // Handle theme change
-                        const handleThemeChange = useCallback((themeId: string) => {
-                          setSelectedTheme(themeId);
-                        }, []);
 
                         return (
                           <motion.div
@@ -326,13 +336,13 @@ const VisionBoardPage: React.FC = () => {
                                 <div>
                                   <h3 
                                     className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-focus-600 transition-colors"
-                                    style={{ color: selectedThemeData.colors.text }}
+                                    style={{ color: themeConfig.colors.text }}
                                   >
                                     {entry.title}
                                   </h3>
                                   <p 
                                     className="text-sm line-clamp-3 leading-relaxed"
-                                    style={{ color: selectedThemeData.colors.secondary }}
+                                    style={{ color: themeConfig.colors.secondary }}
                                   >
                                     {entry.description}
                                   </p>
@@ -356,9 +366,9 @@ const VisionBoardPage: React.FC = () => {
                                     <span 
                                       className="px-3 py-1.5 text-xs font-medium rounded-full border"
                                       style={{ 
-                                        backgroundColor: selectedThemeData.colors.accent + '20',
-                                        color: selectedThemeData.colors.accent,
-                                        borderColor: selectedThemeData.colors.accent + '40'
+                                        backgroundColor: themeConfig.colors.accent + '20',
+                                        color: themeConfig.colors.accent,
+                                        borderColor: themeConfig.colors.accent + '40'
                                       }}
                                     >
                                       {entry.category}
@@ -369,18 +379,18 @@ const VisionBoardPage: React.FC = () => {
                                 {/* Progress Bar */}
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center text-xs">
-                                    <span style={{ color: selectedThemeData.colors.secondary }}>Progress</span>
-                                    <span style={{ color: selectedThemeData.colors.primary }}>{entry.progressPercentage || 0}%</span>
+                                    <span style={{ color: themeConfig.colors.secondary }}>Progress</span>
+                                    <span style={{ color: themeConfig.colors.primary }}>{entry.progressPercentage || 0}%</span>
                                   </div>
                                   <div 
                                     className="h-2 rounded-full overflow-hidden"
-                                    style={{ backgroundColor: selectedThemeData.colors.border }}
+                                    style={{ backgroundColor: themeConfig.colors.border }}
                                   >
                                     <div 
                                       className="h-full rounded-full transition-all duration-500"
                                       style={{ 
                                         width: `${entry.progressPercentage || 0}%`,
-                                        backgroundColor: selectedThemeData.colors.accent
+                                        backgroundColor: themeConfig.colors.accent
                                       }}
                                     />
                                   </div>
@@ -388,15 +398,15 @@ const VisionBoardPage: React.FC = () => {
 
                                 {/* Linked Tasks Preview */}
                                 {entry.linkedTaskIds && entry.linkedTaskIds.length > 0 && (
-                                  <div className="flex items-center gap-2 text-xs" style={{ color: selectedThemeData.colors.secondary }}>
+                                  <div className="flex items-center gap-2 text-xs" style={{ color: themeConfig.colors.secondary }}>
                                     <ListTodo className="h-3 w-3" />
                                     <span>{entry.linkedTaskIds.length} linked task{entry.linkedTaskIds.length > 1 ? 's' : ''}</span>
                                   </div>
                                 )}
                                 
                                 {/* Enhanced Footer */}
-                                <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: selectedThemeData.colors.border }}>
-                                  <div className="flex items-center gap-2 text-xs" style={{ color: selectedThemeData.colors.secondary }}>
+                                <div className="flex justify-between items-center pt-2 border-t" style={{ borderColor: themeConfig.colors.border }}>
+                                  <div className="flex items-center gap-2 text-xs" style={{ color: themeConfig.colors.secondary }}>
                                     <Calendar size={14} />
                                     <span>
                                       {entry.createdAt ? 
@@ -433,7 +443,8 @@ const VisionBoardPage: React.FC = () => {
                                       className="h-8 w-8 rounded-full hover:bg-focus-100 text-gray-500 hover:text-focus-600 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleEditClick(entry);
+                                        const vision = state.visions.find(v => v.id === entry.id);
+                                        if (vision) handleEditVision(vision);
                                       }}
                                     >
                                       <Pencil size={14} />
@@ -473,7 +484,10 @@ const VisionBoardPage: React.FC = () => {
                 <ManifestationJournal
                   entry={journalEntry}
                   onUpdateEntry={(updatedEntry) => {
-                    updateEntry(updatedEntry);
+                    const vision = state.visions.find(v => v.id === updatedEntry.id);
+                    if (vision) {
+                      updateVision({ ...vision, ...updatedEntry });
+                    }
                     setJournalEntry(updatedEntry);
                   }}
                   theme={selectedTheme}
@@ -487,12 +501,12 @@ const VisionBoardPage: React.FC = () => {
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="sm:max-w-[500px] md:max-w-[700px] max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border-0">
             <DialogTitle className="text-xl font-bold text-foreground">
-              {editingEntry ? 'Edit Vision Entry' : 'Add Vision Entry'}
+              {editingVision ? 'Edit Vision Entry' : 'Add Vision Entry'}
             </DialogTitle>
             <VisionEntryDialog
               isOpen={isAddDialogOpen}
               onClose={() => setIsAddDialogOpen(false)}
-              editEntry={editingEntry}
+              editEntry={editingVision}
             />
           </DialogContent>
         </Dialog>
@@ -500,21 +514,21 @@ const VisionBoardPage: React.FC = () => {
         <DeleteConfirmDialog
           isOpen={isDeleteDialogOpen}
           onClose={() => setIsDeleteDialogOpen(false)}
-          onConfirm={confirmDelete}
+          onConfirm={handleConfirmDelete}
         />
         
         {/* Enhanced Detail Modal */}
         <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
           <DialogContent className="sm:max-w-[500px] md:max-w-[700px] max-h-[90vh] overflow-y-auto p-0 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border-0">
-            <DialogTitle>View {selectedEntry?.title || 'Vision Entry'}</DialogTitle>
-            {selectedEntry && (
+            <DialogTitle>View {selectedVision?.title || 'Vision Entry'}</DialogTitle>
+            {selectedVision && (
               <div className="flex flex-col h-full">
                 {/* Enhanced Image Header */}
                 <div className="relative h-56 sm:h-64 md:h-72 overflow-hidden rounded-t-2xl">
-                  {selectedEntry.imageUrl ? (
+                  {selectedVision.imageUrl ? (
                     <img
-                      src={selectedEntry.imageUrl}
-                      alt={selectedEntry.title}
+                      src={selectedVision.imageUrl}
+                      alt={selectedVision.title}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -537,42 +551,42 @@ const VisionBoardPage: React.FC = () => {
                 <div className="p-8 flex flex-col flex-grow space-y-6">
                   <div>
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-                      {selectedEntry.title}
+                      {selectedVision.title}
                     </h2>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
                       <div className="flex items-center gap-2">
                         <Calendar size={16} />
                         <span>
-                          {selectedEntry.createdAt ? 
+                          {selectedVision.createdAt ? 
                             (() => {
                               try {
-                                const date = parseISO(selectedEntry.createdAt);
+                                const date = parseISO(selectedVision.createdAt);
                                 return isValid(date) ? format(date, 'MMMM d, yyyy') : 'No date';
                               } catch (error) {
-                                console.error('Invalid date format:', selectedEntry.createdAt);
+                                console.error('Invalid date format:', selectedVision.createdAt);
                                 return 'No date';
                               }
                             })() 
                             : 'No date'}
                         </span>
                       </div>
-                      {selectedEntry.category && (
+                      {selectedVision.category && (
                         <span className="px-3 py-1 text-xs font-medium rounded-full bg-gradient-to-r from-focus-100 to-focus-50 text-focus-700 dark:from-focus-900 dark:to-focus-800 dark:text-focus-300">
-                          {selectedEntry.category}
+                          {selectedVision.category}
                         </span>
                       )}
                     </div>
                   </div>
                   
                   <p className="text-foreground text-base leading-relaxed">
-                    {selectedEntry.description}
+                    {selectedVision.description}
                   </p>
                   
                   {/* Media Section - keep existing code */}
-                  {selectedEntry.mediaItems && selectedEntry.mediaItems.length > 0 && (
+                  {selectedVision.media && selectedVision.media.length > 0 && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold text-foreground">Media</h3>
-                      {selectedEntry.mediaItems.map((media: any) => (
+                      {selectedVision.media.map((media: any) => (
                         <div key={media.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
                           {media.type === 'audio' && (
                             <audio controls className="w-full">
@@ -594,8 +608,65 @@ const VisionBoardPage: React.FC = () => {
                     </div>
                   )}
                   
+                  {/* Vision-as-Milestone Linking Section */}
+                  <div className="space-y-6 border-t pt-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                        <Target className="h-5 w-5 text-focus-600" />
+                        Milestones & Dependencies
+                      </h3>
+                    </div>
+
+                    {/* Current Milestones */}
+                    <MilestoneTiles 
+                      parentVisionId={selectedVision.id}
+                      onMilestoneClick={(milestoneId) => {
+                        const milestone = state.visions.find(v => v.id === milestoneId);
+                        if (milestone) {
+                          setSelectedVision(milestone);
+                        }
+                      }}
+                      onRemoveMilestone={(milestoneId) => {
+                        // Handle milestone removal
+                        toast({
+                          title: "Milestone Removed",
+                          description: "The milestone has been removed from this vision.",
+                        });
+                      }}
+                    />
+
+                    {/* Add New Milestone */}
+                    <div className="flex justify-center">
+                      <VisionPicker
+                        parentVisionId={selectedVision.id}
+                        onVisionSelected={(visionId, title) => {
+                          toast({
+                            title: "Milestone Added",
+                            description: `${title || 'Vision'} has been linked as a milestone.`,
+                          });
+                        }}
+                      >
+                        <Button variant="outline" className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          Add Milestone Vision
+                        </Button>
+                      </VisionPicker>
+                    </div>
+
+                    {/* Vision Backlinks */}
+                    <VisionBacklinks 
+                      visionId={selectedVision.id}
+                      onBacklinkClick={(backlinkId) => {
+                        const backlink = state.visions.find(v => v.id === backlinkId);
+                        if (backlink) {
+                          setSelectedVision(backlink);
+                        }
+                      }}
+                    />
+                  </div>
+                  
                   {/* Enhanced Accomplishment Section */}
-                  {!selectedEntry.completed ? (
+                  {selectedVision.status !== 'completed' ? (
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-green-200 dark:border-green-800">
                       <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                         <Check className="h-5 w-5 text-green-600" />
@@ -633,11 +704,11 @@ const VisionBoardPage: React.FC = () => {
                         Accomplished
                       </h3>
                       <p className="text-green-700 dark:text-green-400">
-                        Completed on: {selectedEntry.completedAt ? format(parseISO(selectedEntry.completedAt), 'MMMM d, yyyy') : 'N/A'}
+                        Completed on: {selectedVision.completedAt ? format(parseISO(selectedVision.completedAt), 'MMMM d, yyyy') : 'N/A'}
                       </p>
-                      {selectedEntry.notes && (
+                      {selectedVision.notes && (
                         <p className="text-green-700 dark:text-green-400 mt-2">
-                          <span className="font-medium">Reflection:</span> {selectedEntry.notes}
+                          <span className="font-medium">Reflection:</span> {selectedVision.notes}
                         </p>
                       )}
                     </div>
@@ -649,7 +720,7 @@ const VisionBoardPage: React.FC = () => {
                       variant="outline"
                       onClick={() => {
                         setIsDetailModalOpen(false);
-                        handleEditClick(selectedEntry);
+                        handleEditVision(selectedVision);
                       }}
                       className="flex-1 rounded-lg border-focus-200 hover:border-focus-400 hover:bg-focus-50 transition-colors"
                     >
@@ -660,7 +731,7 @@ const VisionBoardPage: React.FC = () => {
                       variant="destructive"
                       onClick={() => {
                         setIsDetailModalOpen(false);
-                        handleDeleteClick(selectedEntry.id);
+                        handleDeleteClick(selectedVision.id);
                       }}
                       className="flex-1 rounded-lg bg-red-500 hover:bg-red-600 transition-colors"
                     >
