@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Trash2, Download, Share2, Moon, Sun, Target, Sparkles, Palette } from 'lucide-react';
-import CustomSoundSelector from '@/components/CustomSoundSelector';
+import CustomSoundSelector from '@/components/settings/CustomSoundSelector';
+import callStyleNotificationService from '@/services/CallStyleNotificationService';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useTimer } from '@/contexts/TimerContext';
 import { useTasks } from '@/contexts/TaskContext';
@@ -30,6 +31,12 @@ const SettingsPage: React.FC = () => {
   
   const [urgentNotifications, setUrgentNotifications] = React.useState(() => {
     return localStorage.getItem('urgentNotifications') === 'true'; // Default to false
+  });
+
+  // Call-style notifications state
+  const [callStyleNotifications, setCallStyleNotifications] = React.useState(() => {
+    const settings = callStyleNotificationService.getSettings();
+    return settings.enabled;
   });
   
   const { resetTimer } = useTimer();
@@ -308,8 +315,16 @@ const SettingsPage: React.FC = () => {
                   <h3 className="text-sm font-medium mb-4">Notification Sounds</h3>
                   
                   <div className="space-y-5">
-                    <CustomSoundSelector type="timer" />
-                    <CustomSoundSelector type="task" />
+                    <CustomSoundSelector 
+                      onSoundSelected={(soundPath) => {
+                        console.log('Timer notification sound selected:', soundPath);
+                        toast({
+                          title: "Sound Updated",
+                          description: "Timer notification sound has been updated."
+                        });
+                      }}
+                      currentSound={callStyleNotificationService.getCurrentRingtone()}
+                    />
                     
                     <p className="text-xs text-gray-500 dark:text-gray-400 italic">
                       Select audio files from your device to personalize notifications

@@ -36,15 +36,18 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
   const activeQuests = quests.filter(quest => !quest.isCompleted);
   const completedQuests = quests.filter(quest => quest.isCompleted);
 
-  // Enhanced quest generation system - unlimited and persistent
+  // UNLIMITED & PERSISTENT quest system - always available
   useEffect(() => {
     const initializeUnlimitedQuests = () => {
       const today = new Date().toISOString().split('T')[0];
       const activeQuestsCount = activeQuests.length;
       
-      // Always maintain at least 8-12 active quests
-      if (activeQuestsCount < 8) {
-        const questsToGenerate = 12 - activeQuestsCount;
+      // Load persistent completed quests from localStorage
+      loadCompletedQuestsFromStorage();
+      
+      // ALWAYS maintain 15-20 active quests for unlimited availability
+      if (activeQuestsCount < 15) {
+        const questsToGenerate = 20 - activeQuestsCount;
         generateDynamicQuests(questsToGenerate);
       }
     };
@@ -139,12 +142,42 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
         newQuests.push(newQuest);
       }
 
-      // Create quests in GameContext
-      newQuests.forEach(quest => {
-        createQuest(quest);
-      });
-      
-      console.log(`✅ Generated ${newQuests.length} new dynamic quests`);
+      // Create all new quests and save to localStorage
+      newQuests.forEach(quest => createQuest(quest));
+      saveActiveQuestsToStorage(newQuests);
+    };
+    
+    // Load completed quests from localStorage for persistence
+    const loadCompletedQuestsFromStorage = () => {
+      try {
+        const stored = localStorage.getItem('focusflow_completed_quests');
+        if (stored) {
+          const completedQuests = JSON.parse(stored);
+          // Keep only recent completed quests (last 30 days)
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          
+          const recentCompleted = completedQuests.filter((quest: Quest) => 
+            new Date(quest.completedAt || 0) > thirtyDaysAgo
+          );
+          
+          // Update localStorage with filtered quests
+          localStorage.setItem('focusflow_completed_quests', JSON.stringify(recentCompleted));
+        }
+      } catch (error) {
+        console.warn('Error loading completed quests:', error);
+      }
+    };
+    
+    // Save active quests for persistence
+    const saveActiveQuestsToStorage = (newQuests: Quest[]) => {
+      try {
+        const existingActive = JSON.parse(localStorage.getItem('focusflow_active_quests') || '[]');
+        const combined = [...existingActive, ...newQuests];
+        localStorage.setItem('focusflow_active_quests', JSON.stringify(combined));
+      } catch (error) {
+        console.warn('Error saving active quests:', error);
+      }
     };
 
     initializeUnlimitedQuests();
@@ -188,18 +221,76 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
               current: newCurrent
             }
           };
+          
           updateQuest(updatedQuest);
-        }
-        
-        // Complete quest if target reached
-        if (shouldComplete && !quest.isCompleted) {
-          handleCompleteQuest(quest.id);
+          
+          // If quest completed, save to persistent storage and generate replacement
+          if (shouldComplete && !quest.isCompleted) {
+            handlePersistentQuestCompletion(quest);
+          }
         }
       });
     };
     
     updateQuestProgress();
-  }, [tasks, gameStats, activeQuests, updateQuest, completeQuest, addCoins, addXP]);
+  }, [tasks, gameStats.streak, activeQuests, updateQuest]);
+
+  // Handle persistent quest completion with localStorage storage
+  const handlePersistentQuestCompletion = async (quest: Quest) => {
+    try {
+      // Complete the quest
+      await completeQuest(quest.id);
+      
+      // Store completed quest persistently
+      const completedQuest = {
+        ...quest,
+        isCompleted: true,
+        completedAt: new Date().toISOString()
+      };
+      
+      const existingCompleted = JSON.parse(localStorage.getItem('focusflow_completed_quests') || '[]');
+      const updatedCompleted = [...existingCompleted, completedQuest];
+      localStorage.setItem('focusflow_completed_quests', JSON.stringify(updatedCompleted));
+      
+      // Award rewards
+      addXP(quest.xpReward);
+      addCoins(quest.coinReward);
+      
+      // Show completion effect
+      setShowCompletionEffect(quest.id);
+      setTimeout(() => setShowCompletionEffect(null), 2000);
+      
+      // Generate a replacement quest immediately for unlimited availability
+      generateDynamicQuests(1);
+      
+      console.log(`✅ Quest completed and stored persistently: ${quest.title}`);
+      
+    } catch (error) {
+      console.error('Error handling persistent quest completion:', error);
+    }
+  };
+
+  // Get total completed quest stats from localStorage
+  const getTotalCompletedStats = () => {
+    try {
+      const completed = JSON.parse(localStorage.getItem('focusflow_completed_quests') || '[]');
+      return {
+        total: completed.length,
+        thisWeek: completed.filter((q: Quest) => {
+          const completedDate = new Date(q.completedAt || 0);
+          const weekAgo = new Date();
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return completedDate > weekAgo;
+        }).length,
+        totalXP: completed.reduce((sum: number, q: Quest) => sum + (q.xpReward || 0), 0),
+        totalCoins: completed.reduce((sum: number, q: Quest) => sum + (q.coinReward || 0), 0)
+      };
+    } catch {
+      return { total: 0, thisWeek: 0, totalXP: 0, totalCoins: 0 };
+    }
+  };
+
+  const completedStats = getTotalCompletedStats();
 
   const getDifficultyColor = (difficulty: Quest['difficulty']) => {
     switch (difficulty) {

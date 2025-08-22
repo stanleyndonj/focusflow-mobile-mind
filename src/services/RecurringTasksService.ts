@@ -182,7 +182,7 @@ class RecurringTasksService {
         } else {
           // For recurring tasks, calculate next occurrence
           const time = task.time;
-          let nextDate = new Date();
+          const nextDate = new Date();
           nextDate.setHours(time.hour, time.minute, 0, 0);
           
           switch (recurrence) {

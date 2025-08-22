@@ -299,8 +299,6 @@ const VisionBoardPage: React.FC = () => {
                             <div 
                               className={`${themeConfig.gradients.card} rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border cursor-pointer transform hover:scale-[1.02]`}
                               style={{ borderColor: themeConfig.colors.border }}
-                              className={`${selectedThemeData.gradients.card} rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border cursor-pointer transform hover:scale-[1.02]`}
-                              style={{ borderColor: selectedThemeData.colors.border }}
                               onClick={() => handleEntryClick(entry)}
                             >
                               {/* Enhanced Image Section with Progress-Linked Updates */}

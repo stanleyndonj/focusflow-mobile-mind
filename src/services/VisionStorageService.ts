@@ -130,7 +130,7 @@ class VisionStorageService {
   // Extract legacy data from multiple sources
   private async extractLegacyData(): Promise<any[] | null> {
     // Try IndexedDB first (most recent)
-    let data = await get('visionBoardEntries');
+    const data = await get('visionBoardEntries');
     if (data) return data;
 
     // Try localStorage (older format)
