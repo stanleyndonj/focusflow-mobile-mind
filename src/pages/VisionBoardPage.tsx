@@ -1,91 +1,155 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
-import { useVisionBoard } from '@/contexts/VisionBoardContext';
-import { Plus, Pencil, Trash, AlertCircle, Grid, Calendar, BookOpen, Palette, ListTodo } from 'lucide-react';
+import { useVisionBoard, Vision } from '@/contexts/VisionBoardContext';
+import { Plus, Grid, Calendar, BookOpen, Palette, ListTodo, Target, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, isValid, parseISO } from 'date-fns';
 import { toast } from '@/components/ui/use-toast';
 import VisionEntryDialog from '@/components/vision/VisionEntryDialog';
 import DeleteConfirmDialog from '@/components/vision/DeleteConfirmDialog';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { X, Check, Target, Sparkles } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CountdownClock from '@/components/vision/CountdownClock';
 import ProgressLinkedImage from '@/components/vision/ProgressLinkedImage';
 import ThemeSelector, { VISION_BOARD_THEMES, VisionBoardTheme } from '@/components/vision/ThemeSelector';
 import TimelineView from '@/components/vision/TimelineView';
 import ManifestationJournal from '@/components/vision/ManifestationJournal';
+import VirtualizedVisionGrid from '@/components/vision/VirtualizedVisionGrid';
+import EnhancedVisionDetailsDialog from '@/components/vision/EnhancedVisionDetailsDialog';
 import { useTasks } from '@/contexts/TaskContext';
 
 const VisionBoardPage: React.FC = () => {
-  const { state, deleteEntry, updateEntry } = useVisionBoard();
+  const { state, deleteVision, updateVision, addVision } = useVisionBoard();
   const { state: taskState } = useTasks();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [editingVision, setEditingVision] = useState<Vision | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
-  const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [visionToDelete, setVisionToDelete] = useState<string | null>(null);
+  const [selectedVision, setSelectedVision] = useState<Vision | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [completionDate, setCompletionDate] = useState<string>("");
-  const [reflectionNote, setReflectionNote] = useState<string>("");
   const [currentView, setCurrentView] = useState<'grid' | 'timeline'>('grid');
   const [selectedTheme, setSelectedTheme] = useState<string>('minimal');
   const [showJournal, setShowJournal] = useState(false);
   const [journalEntry, setJournalEntry] = useState<any>(null);
 
-  const handleAddClick = () => {
-    setEditingEntry(null);
-    setIsAddDialogOpen(true);
-  };
+  // Memoized visions for performance
+  const activeVisions = useMemo(() => {
+    return state.visions.filter(v => v.status === 'active');
+  }, [state.visions]);
 
-  const handleEditClick = (entry: any) => {
-    setEditingEntry(entry);
-    setIsAddDialogOpen(true);
-  };
+  const completedVisions = useMemo(() => {
+    return state.visions.filter(v => v.status === 'completed');
+  }, [state.visions]);
 
-  const handleDeleteClick = (id: string) => {
-    setEntryToDelete(id);
+  const handleAddClick = useCallback(() => {
+    setEditingVision(null);
+    setIsAddDialogOpen(true);
+  }, []);
+
+  const handleEditVision = useCallback((vision: Vision) => {
+    setEditingVision(vision);
+    setIsAddDialogOpen(true);
+  }, []);
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setVisionToDelete(id);
     setIsDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const confirmDelete = () => {
-    if (entryToDelete) {
-      deleteEntry(entryToDelete);
+  const handleConfirmDelete = useCallback(async () => {
+    if (visionToDelete) {
+      await deleteVision(visionToDelete);
       toast({
-        title: "Vision entry deleted",
-        description: "Your vision board entry has been removed.",
+        title: "Vision Deleted",
+        description: "Your vision has been removed from the board."
       });
+      setVisionToDelete(null);
       setIsDeleteDialogOpen(false);
-      setEntryToDelete(null);
     }
-  };
+  }, [visionToDelete, deleteVision]);
+
+  const handleVisionClick = useCallback((vision: Vision) => {
+    setSelectedVision(vision);
+    setIsDetailModalOpen(true);
+  }, []);
+
+  const handleSaveVision = useCallback(async (vision: Vision) => {
+    await updateVision(vision);
+    setSelectedVision(vision); // Update the selected vision with new data
+    toast({
+      title: "Vision Updated",
+      description: "Your vision has been successfully updated."
+    });
+  }, [updateVision]);
 
   const handleEntryClick = (entry: any) => {
-    setSelectedEntry(entry);
-    setCompletionDate(entry.completedAt || "");
-    setReflectionNote(entry.notes || "");
+    setSelectedVision(entry);
     setIsDetailModalOpen(true);
   };
 
   const handleMarkAccomplished = () => {
-    if (selectedEntry) {
-      const updatedEntry = {
-        ...selectedEntry,
+    if (selectedVision) {
+      const updatedVision = {
+        ...selectedVision,
         completed: true,
-        completedAt: completionDate || new Date().toISOString(),
-        notes: reflectionNote
+        completedAt: new Date().toISOString(),
       };
-      updateEntry(updatedEntry);
+      handleSaveVision(updatedVision);
       toast({
         title: "Vision Accomplished",
-        description: `Congratulations on achieving ${updatedEntry.title}!`
+        description: `Congratulations on achieving ${updatedVision.title}!`
       });
       setIsDetailModalOpen(false);
     }
   };
+
+  const handleCloseDetailModal = useCallback(() => {
+    setIsDetailModalOpen(false);
+    setSelectedVision(null);
+  }, []);
+
+  // Loading and migration states
+  if (state.loading || state.migrating) {
+    return (
+      <MobileLayout>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4 text-blue-600" />
+              <p className="text-gray-600 dark:text-gray-400">
+                {state.migrating ? 'Upgrading your visions...' : 'Loading your visions...'}
+              </p>
+              {state.migrating && (
+                <p className="text-xs text-gray-500 mt-2">
+                  This may take a moment during the first launch after an update
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </MobileLayout>
+    );
+  }
+
+  // Error state
+  if (state.error) {
+    return (
+      <MobileLayout>
+        <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-gray-800">
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center p-6">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+              <h2 className="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">Error Loading Visions</h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">{state.error}</p>
+              <Button onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -201,19 +265,28 @@ const VisionBoardPage: React.FC = () => {
 
               {/* Main Content Area */}
               {currentView === 'timeline' ? (
-                <TimelineView
-                  entries={state.entries}
-                  onEntryClick={handleEntryClick}
-                  theme={selectedTheme}
-                />
+                <TabsContent value="timeline">
+                  <TimelineView entries={state.entries} onEdit={(entry) => {
+                    const vision = state.visions.find(v => v.id === entry.id);
+                    if (vision) handleEditVision(vision);
+                  }} />
+                </TabsContent>
               ) : (
                 <div className="space-y-6">
                   {/* Enhanced Grid View */}
                   <AnimatePresence>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
                       {state.entries.map((entry, index) => {
-                        const selectedThemeData = VISION_BOARD_THEMES.find(t => t.id === selectedTheme) || VISION_BOARD_THEMES[0];
-                        
+                        // Get theme configuration
+                        const themeConfig = useMemo(() => {
+                          return VISION_BOARD_THEMES.find(t => t.id === selectedTheme) || VISION_BOARD_THEMES[0];
+                        }, [selectedTheme]);
+
+                        // Handle theme change
+                        const handleThemeChange = useCallback((themeId: string) => {
+                          setSelectedTheme(themeId);
+                        }, []);
+
                         return (
                           <motion.div
                             key={entry.id}
@@ -224,6 +297,8 @@ const VisionBoardPage: React.FC = () => {
                             className="group relative"
                           >
                             <div 
+                              className={`${themeConfig.gradients.card} rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border cursor-pointer transform hover:scale-[1.02]`}
+                              style={{ borderColor: themeConfig.colors.border }}
                               className={`${selectedThemeData.gradients.card} rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border cursor-pointer transform hover:scale-[1.02]`}
                               style={{ borderColor: selectedThemeData.colors.border }}
                               onClick={() => handleEntryClick(entry)}

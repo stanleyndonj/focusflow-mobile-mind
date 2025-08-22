@@ -1,83 +1,116 @@
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
+import { toast } from '@/components/ui/use-toast';
+import { visionStorageService, Vision, VisionMilestone, MediaItem } from '@/services/VisionStorageService';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { get, set } from 'idb-keyval';
+// Re-export types from storage service
+export type { Vision, VisionMilestone, MediaItem } from '@/services/VisionStorageService';
 
-// Media Item Type
-export interface MediaItem {
-  id: string;
-  type: 'image' | 'audio' | 'video'; // Type of media
-  url: string;  // URL or data URI of the media
-  thumbnail?: string; // Optional thumbnail for videos
-  mimeType?: string; // MIME type of the media file
-  createdAt: string; // Date added
-}
-
-// Milestone Type
+// Legacy types for backward compatibility
 export interface Milestone {
   id: string;
-  title: string; // Title of the milestone
-  dueDate: string; // Target date
-  completed: boolean; // Whether it's been achieved
-  completedAt?: string; // When it was completed
-  createdAt?: string; // When it was created
-  notes?: string; // Any additional notes
+  title: string;
+  dueDate: string;
+  completed: boolean;
+  completedAt?: string;
+  createdAt?: string;
+  notes?: string;
 }
 
-// Journal Entry Type
 export interface JournalEntry {
   id: string;
-  content: string; // The journal content
-  createdAt: string; // When it was written
-  prompt?: string; // The optional prompt that was used
+  content: string;
+  createdAt: string;
+  prompt?: string;
 }
 
-// Vision Board Entry Type
+// Legacy VisionBoardEntry (will be mapped to Vision internally)
 export interface VisionBoardEntry {
   id: string;
-  imageUrl?: string;  // Primary image URL (kept for backward compatibility)
-  title: string;      // Title of the vision/goal
-  description: string; // Longer description or quote
-  category?: string;  // Optional category
-  linkedTaskIds?: string[]; // Optional linked task IDs
-  createdAt: string;  // Date created
-  
-  // New fields for enhanced features
-  milestones?: Milestone[]; // Timeline milestones
-  journalEntries?: JournalEntry[]; // Reflection entries
-  mediaItems?: MediaItem[]; // Additional media files
-  importance?: string; // Why this vision is important
-  successCriteria?: string; // What success looks like
-  targetDate?: string; // Overall target date
-  progressPercentage?: number; // Calculated progress
+  imageUrl?: string;
+  title: string;
+  description: string;
+  category?: string;
+  linkedTaskIds?: string[];
+  createdAt: string;
+  milestones?: Milestone[];
+  journalEntries?: JournalEntry[];
+  mediaItems?: MediaItem[];
+  importance?: string;
+  successCriteria?: string;
+  targetDate?: string;
+  progressPercentage?: number;
   completed?: boolean;
   completedAt?: string;
   notes?: string;
 }
 
-// Vision Board State
+// Enhanced Vision Board State
 interface VisionBoardState {
-  entries: VisionBoardEntry[];
+  visions: Vision[];
+  milestones: VisionMilestone[];
   loading: boolean;
   error: string | null;
+  migrating: boolean;
+  
+  // Legacy compatibility
+  entries: VisionBoardEntry[];
 }
 
-// Actions
+// Enhanced Actions
 type VisionBoardAction =
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_MIGRATING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string }
+  | { type: 'LOAD_VISIONS'; payload: Vision[] }
+  | { type: 'LOAD_MILESTONES'; payload: VisionMilestone[] }
+  | { type: 'ADD_VISION'; payload: Vision }
+  | { type: 'UPDATE_VISION'; payload: Vision }
+  | { type: 'DELETE_VISION'; payload: string }
+  | { type: 'ADD_MILESTONE'; payload: VisionMilestone }
+  | { type: 'UPDATE_MILESTONE'; payload: VisionMilestone }
+  | { type: 'DELETE_MILESTONE'; payload: string }
+  // Legacy compatibility
   | { type: 'ADD_ENTRY'; payload: VisionBoardEntry }
   | { type: 'UPDATE_ENTRY'; payload: VisionBoardEntry }
   | { type: 'DELETE_ENTRY'; payload: string }
-  | { type: 'LOAD_ENTRIES'; payload: VisionBoardEntry[] }
-  | { type: 'SET_ERROR'; payload: string };
+  | { type: 'LOAD_ENTRIES'; payload: VisionBoardEntry[] };
 
 // Initial State
 const initialState: VisionBoardState = {
-  entries: [],
+  visions: [],
+  milestones: [],
+  entries: [], // Legacy compatibility
   loading: true,
   error: null,
+  migrating: false,
 };
 
-// Reducer
-const visionBoardReducer = (state: VisionBoardState, action: VisionBoardAction): VisionBoardState => {
+// Helper function to convert Vision to legacy VisionBoardEntry
+function visionToLegacyEntry(vision: Vision): VisionBoardEntry {
+  return {
+    id: vision.id,
+    title: vision.title,
+    description: vision.description,
+    createdAt: vision.createdAt,
+    imageUrl: vision.media?.[0]?.path,
+    category: vision.category,
+    linkedTaskIds: vision.linkedTaskIds,
+    importance: vision.importance,
+    successCriteria: vision.successCriteria,
+    targetDate: vision.targetDate,
+    progressPercentage: vision.progressPercentage,
+    completed: vision.status === 'completed',
+    completedAt: vision.accomplishedAt,
+    notes: vision.notes,
+    milestones: [], // Legacy milestones handled separately
+    journalEntries: [], // Legacy journal entries
+    mediaItems: vision.media
+  };
+}
+
+// Handle legacy actions
+function handleLegacyAction(state: VisionBoardState, action: any): VisionBoardState {
   switch (action.type) {
     case 'ADD_ENTRY':
       return {
@@ -102,393 +135,552 @@ const visionBoardReducer = (state: VisionBoardState, action: VisionBoardAction):
         entries: action.payload,
         loading: false,
       };
+    default:
+      return state;
+  }
+}
+
+// Enhanced Reducer
+const visionBoardReducer = (state: VisionBoardState, action: VisionBoardAction): VisionBoardState => {
+  switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_MIGRATING':
+      return { ...state, migrating: action.payload };
     case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+    
+    case 'LOAD_VISIONS':
       return {
         ...state,
-        error: action.payload,
-        loading: false,
+        visions: action.payload,
+        entries: action.payload.map(visionToLegacyEntry), // Legacy compatibility
+        loading: false
       };
+    case 'LOAD_MILESTONES':
+      return { ...state, milestones: action.payload };
+    
+    case 'ADD_VISION':
+      return {
+        ...state,
+        visions: [action.payload, ...state.visions],
+        entries: [visionToLegacyEntry(action.payload), ...state.entries]
+      };
+    case 'UPDATE_VISION':
+      return {
+        ...state,
+        visions: state.visions.map(v => v.id === action.payload.id ? action.payload : v),
+        entries: state.entries.map(e => e.id === action.payload.id ? visionToLegacyEntry(action.payload) : e)
+      };
+    case 'DELETE_VISION':
+      return {
+        ...state,
+        visions: state.visions.filter(v => v.id !== action.payload),
+        entries: state.entries.filter(e => e.id !== action.payload)
+      };
+    
+    case 'ADD_MILESTONE':
+      return {
+        ...state,
+        milestones: [...state.milestones, action.payload]
+      };
+    case 'UPDATE_MILESTONE':
+      return {
+        ...state,
+        milestones: state.milestones.map(m => m.id === action.payload.id ? action.payload : m)
+      };
+    case 'DELETE_MILESTONE':
+      return {
+        ...state,
+        milestones: state.milestones.filter(m => m.id !== action.payload)
+      };
+    
+    // Legacy compatibility
+    case 'ADD_ENTRY':
+    case 'UPDATE_ENTRY':
+    case 'DELETE_ENTRY':
+    case 'LOAD_ENTRIES':
+      return handleLegacyAction(state, action);
+    
     default:
       return state;
   }
 };
 
-// Context Type
+// Enhanced Context Type
 interface VisionBoardContextType {
   state: VisionBoardState;
+  
+  // Vision management
+  addVision: (vision: Omit<Vision, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateVision: (vision: Vision) => Promise<void>;
+  deleteVision: (id: string) => Promise<void>;
+  completeVision: (id: string) => Promise<void>;
+  getVisionById: (id: string) => Vision | undefined;
+  getRandomVision: () => Vision | null;
+  
+  // Milestone management
+  addMilestone: (milestone: Omit<VisionMilestone, 'id' | 'createdAt'>) => Promise<void>;
+  updateMilestone: (milestone: VisionMilestone) => Promise<void>;
+  deleteMilestone: (id: string) => Promise<void>;
+  toggleMilestoneCompletion: (id: string) => Promise<void>;
+  getMilestonesForVision: (visionId: string) => VisionMilestone[];
+  
+  // Vision linking
+  linkVisionAsMilestone: (parentVisionId: string, linkedVisionId: string, title?: string) => Promise<void>;
+  unlinkVisionMilestone: (milestoneId: string) => Promise<void>;
+  getParentVisions: (linkedVisionId: string) => Promise<string[]>;
+  checkForCycles: (parentVisionId: string, linkedVisionId: string) => Promise<boolean>;
+  
+  // Progress and analytics
+  calculateVisionProgress: (visionId: string) => Promise<number>;
+  updateProgress: (visionId: string, percentage: number) => Promise<void>;
+  
+  // Legacy compatibility
   addEntry: (entry: Omit<VisionBoardEntry, 'id' | 'createdAt'>) => void;
   updateEntry: (entry: VisionBoardEntry) => void;
   deleteEntry: (id: string) => void;
   getRandomEntry: () => VisionBoardEntry | null;
-  
-  // Milestone methods
-  addMilestone: (visionId: string, milestone: Omit<Milestone, 'id' | 'completed' | 'completedAt'>) => void;
-  updateMilestone: (visionId: string, milestone: Milestone) => void;
-  deleteMilestone: (visionId: string, milestoneId: string) => void;
-  toggleMilestoneCompletion: (visionId: string, milestoneId: string) => void;
-  
-  // Journal methods
+  addMilestone_legacy: (visionId: string, milestone: Omit<Milestone, 'id' | 'completed' | 'completedAt'>) => void;
+  updateMilestone_legacy: (visionId: string, milestone: Milestone) => void;
+  deleteMilestone_legacy: (visionId: string, milestoneId: string) => void;
+  toggleMilestoneCompletion_legacy: (visionId: string, milestoneId: string) => void;
   addJournalEntry: (visionId: string, entry: Omit<JournalEntry, 'id' | 'createdAt'>) => void;
   updateJournalEntry: (visionId: string, entry: JournalEntry) => void;
   deleteJournalEntry: (visionId: string, entryId: string) => void;
-  
-  // Media methods
   addMediaItem: (visionId: string, item: Omit<MediaItem, 'id' | 'createdAt'>) => void;
   deleteMediaItem: (visionId: string, itemId: string) => void;
-  
-  // Task linking methods
   linkTask: (visionId: string, taskId: string) => void;
   unlinkTask: (visionId: string, taskId: string) => void;
-  
-  // Progress tracking
-  updateProgress: (visionId: string, percentage: number) => void;
   calculateTaskProgress: (visionId: string) => number;
-  
-  // Get specific vision
-  getVisionById: (id: string) => VisionBoardEntry | undefined;
 }
 
 // Create Context
 const VisionBoardContext = createContext<VisionBoardContextType | undefined>(undefined);
 
-// Provider Component
+// Enhanced Provider Component
 export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(visionBoardReducer, initialState);
 
-  // Determine storage method (assuming web for now due to missing mobile storage dependencies)
-  const isWeb = true; // Hardcoded to true as mobile storage solution is not currently available
-
-  // Load entries from IndexedDB on initial render with migration from localStorage
+  // Initialize storage and load data
   useEffect(() => {
-    const loadEntries = async () => {
+    const initializeAndLoad = async () => {
       try {
-        let savedEntries = null;
-        if (isWeb) {
-          // Check for old localStorage data for migration
-          const oldLocalStorageData = localStorage.getItem('visionBoardEntries');
-          if (oldLocalStorageData) {
-            console.log('Migrating vision board data from localStorage to IndexedDB');
-            savedEntries = JSON.parse(oldLocalStorageData);
-            // Save to IndexedDB
-            await set('visionBoardEntries', savedEntries);
-            // Clear old localStorage to free space
-            localStorage.removeItem('visionBoardEntries');
-          } else {
-            savedEntries = await get('visionBoardEntries');
-          }
-        } else {
-          console.warn('Mobile storage solution not implemented. Vision board data may not persist on mobile devices.');
-          savedEntries = null;
-        }
-        if (savedEntries) {
-          dispatch({ type: 'LOAD_ENTRIES', payload: savedEntries });
-        } else {
-          dispatch({ type: 'LOAD_ENTRIES', payload: [] });
-        }
+        dispatch({ type: 'SET_MIGRATING', payload: true });
+        
+        // Initialize storage service and run migration if needed
+        await visionStorageService.initialize();
+        
+        // Load visions and milestones
+        const [visions, milestones] = await Promise.all([
+          visionStorageService.loadVisions(),
+          visionStorageService.loadMilestones()
+        ]);
+        
+        dispatch({ type: 'LOAD_VISIONS', payload: visions });
+        dispatch({ type: 'LOAD_MILESTONES', payload: milestones });
+        dispatch({ type: 'SET_MIGRATING', payload: false });
+        
       } catch (error) {
-        console.error('Error loading vision board entries:', error);
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load vision board data' });
+        console.error('Error initializing vision board:', error);
+        dispatch({ type: 'SET_ERROR', payload: `Failed to initialize vision board: ${error}` });
+        dispatch({ type: 'SET_MIGRATING', payload: false });
       }
     };
 
-    loadEntries();
-  }, [isWeb]);
+    initializeAndLoad();
+  }, []);
 
-  // Save entries to storage whenever they change
-  useEffect(() => {
-    if (!state.loading) {
-      const saveEntries = async () => {
-        try {
-          if (isWeb) {
-            await set('visionBoardEntries', state.entries);
-          } else {
-            console.warn('Mobile storage solution not implemented. Vision board data may not be saved on mobile devices.');
-          }
-        } catch (error) {
-          console.error('Error saving vision board entries:', error);
-          dispatch({ type: 'SET_ERROR', payload: 'Failed to save vision board data' });
-        }
+  // Vision management functions
+  const addVision = useCallback(async (visionData: Omit<Vision, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newVision: Vision = {
+        ...visionData,
+        id: `vision-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'active',
+        media: visionData.media || []
       };
-      saveEntries();
+      
+      await visionStorageService.saveVision(newVision);
+      dispatch({ type: 'ADD_VISION', payload: newVision });
+      
+      toast({
+        title: "Vision Created",
+        description: `"${newVision.title}" has been added to your vision board.`
+      });
+      
+    } catch (error) {
+      console.error('Error adding vision:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to add vision' });
     }
-  }, [state.entries, state.loading, isWeb]);
+  }, []);
 
-  // Add a new entry
-  const addEntry = (entry: Omit<VisionBoardEntry, 'id' | 'createdAt'>) => {
-    const now = new Date().toISOString();
-    const newEntry: VisionBoardEntry = {
-      ...entry,
-      id: `vision-${Date.now()}`,
-      createdAt: now,
-    };
-    
-    dispatch({ type: 'ADD_ENTRY', payload: newEntry });
-  };
+  const updateVision = useCallback(async (vision: Vision) => {
+    try {
+      await visionStorageService.saveVision(vision);
+      dispatch({ type: 'UPDATE_VISION', payload: vision });
+    } catch (error) {
+      console.error('Error updating vision:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update vision' });
+    }
+  }, []);
 
-  // Update an existing entry
-  const updateEntry = (entry: VisionBoardEntry) => {
-    dispatch({ type: 'UPDATE_ENTRY', payload: entry });
-  };
-
-  // Delete an entry
-  const deleteEntry = (id: string) => {
-    dispatch({ type: 'DELETE_ENTRY', payload: id });
-  };
-
-  // Get a random entry for motivational reminders
-  const getRandomEntry = (): VisionBoardEntry | null => {
-    if (state.entries.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * state.entries.length);
-    return state.entries[randomIndex];
-  };
-  
-  // Get a specific vision entry by ID
-  const getVisionById = (id: string): VisionBoardEntry | undefined => {
-    return state.entries.find(entry => entry.id === id);
-  };
-  
-  // Milestone methods
-  const addMilestone = (visionId: string, milestone: Omit<Milestone, 'id' | 'completed' | 'completedAt'>) => {
-    const vision = getVisionById(visionId);
-    if (!vision) return;
-    
-    const newMilestone: Milestone = {
-      ...milestone,
-      id: `milestone-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      completed: false,
-    };
-    
-    const updatedVision = {
-      ...vision,
-      milestones: [...(vision.milestones || []), newMilestone],
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const updateMilestone = (visionId: string, milestone: Milestone) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.milestones) return;
-    
-    const updatedMilestones = vision.milestones.map(m => 
-      m.id === milestone.id ? milestone : m
-    );
-    
-    const updatedVision = {
-      ...vision,
-      milestones: updatedMilestones,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const deleteMilestone = (visionId: string, milestoneId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.milestones) return;
-    
-    const updatedMilestones = vision.milestones.filter(m => m.id !== milestoneId);
-    
-    const updatedVision = {
-      ...vision,
-      milestones: updatedMilestones,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const toggleMilestoneCompletion = (visionId: string, milestoneId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.milestones) return;
-    
-    const updatedMilestones = vision.milestones.map(m => {
-      if (m.id !== milestoneId) return m;
+  const deleteVision = useCallback(async (id: string) => {
+    try {
+      await visionStorageService.deleteVision(id);
+      dispatch({ type: 'DELETE_VISION', payload: id });
       
-      const now = new Date().toISOString();
-      const completed = !m.completed;
+      toast({
+        title: "Vision Deleted",
+        description: "The vision has been removed from your board."
+      });
       
-      return {
-        ...m,
-        completed,
-        completedAt: completed ? now : undefined,
+    } catch (error) {
+      console.error('Error deleting vision:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete vision' });
+    }
+  }, []);
+
+  const completeVision = useCallback(async (id: string) => {
+    try {
+      const vision = state.visions.find(v => v.id === id);
+      if (!vision) return;
+      
+      const completedVision: Vision = {
+        ...vision,
+        status: 'completed',
+        accomplishedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
-    });
-    
-    const updatedVision = {
-      ...vision,
-      milestones: updatedMilestones,
+      
+      await visionStorageService.saveVision(completedVision);
+      dispatch({ type: 'UPDATE_VISION', payload: completedVision });
+      
+      // Cascade completion to parent visions
+      const affectedParents = await visionStorageService.cascadeVisionCompletion(id);
+      
+      if (affectedParents.length > 0) {
+        // Reload milestones to reflect changes
+        const milestones = await visionStorageService.loadMilestones();
+        dispatch({ type: 'LOAD_MILESTONES', payload: milestones });
+        
+        // Send notifications
+        for (const parentId of affectedParents) {
+          const parentVision = state.visions.find(v => v.id === parentId);
+          if (parentVision) {
+            toast({
+              title: "Milestone Unlocked!",
+              description: `Milestone unlocked in "${parentVision.title}": "${vision.title}"`
+            });
+            
+            // Send local notification
+            try {
+              await LocalNotifications.schedule({
+                notifications: [{
+                  id: Date.now(),
+                  title: `Milestone unlocked in ${parentVision.title}`,
+                  body: `You completed: ${vision.title}`,
+                  schedule: { at: new Date(Date.now() + 1000) }
+                }]
+              });
+            } catch (notificationError) {
+              console.warn('Could not send local notification:', notificationError);
+            }
+          }
+        }
+      }
+      
+      toast({
+        title: "Vision Completed! 🎉",
+        description: `Congratulations on achieving "${vision.title}"!`
+      });
+      
+    } catch (error) {
+      console.error('Error completing vision:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to complete vision' });
+    }
+  }, [state.visions]);
+
+  const getVisionById = useCallback((id: string): Vision | undefined => {
+    return state.visions.find(v => v.id === id);
+  }, [state.visions]);
+
+  const getRandomVision = useCallback((): Vision | null => {
+    if (state.visions.length === 0) return null;
+    const activeVisions = state.visions.filter(v => v.status === 'active');
+    if (activeVisions.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * activeVisions.length);
+    return activeVisions[randomIndex];
+  }, [state.visions]);
+
+  // Milestone management functions
+  const addMilestone = useCallback(async (milestoneData: Omit<VisionMilestone, 'id' | 'createdAt'>) => {
+    try {
+      const newMilestone: VisionMilestone = {
+        ...milestoneData,
+        id: `milestone-${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Check for cycles if it's a vision link
+      if (newMilestone.type === 'vision_link' && newMilestone.linkedVisionId) {
+        const hasCycle = await visionStorageService.checkForCycles(newMilestone.parentVisionId, newMilestone.linkedVisionId);
+        if (hasCycle) {
+          toast({
+            title: "Cannot Link Vision",
+            description: "This would create a circular dependency. A vision cannot depend on itself directly or indirectly.",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+      
+      await visionStorageService.saveMilestone(newMilestone);
+      dispatch({ type: 'ADD_MILESTONE', payload: newMilestone });
+      
+      toast({
+        title: "Milestone Added",
+        description: "New milestone has been added to your vision."
+      });
+      
+    } catch (error) {
+      console.error('Error adding milestone:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to add milestone' });
+    }
+  }, []);
+
+  const updateMilestone = useCallback(async (milestone: VisionMilestone) => {
+    try {
+      await visionStorageService.saveMilestone(milestone);
+      dispatch({ type: 'UPDATE_MILESTONE', payload: milestone });
+    } catch (error) {
+      console.error('Error updating milestone:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update milestone' });
+    }
+  }, []);
+
+  const deleteMilestone = useCallback(async (id: string) => {
+    try {
+      await visionStorageService.deleteMilestone(id);
+      dispatch({ type: 'DELETE_MILESTONE', payload: id });
+      
+      toast({
+        title: "Milestone Removed",
+        description: "The milestone has been removed from your vision."
+      });
+      
+    } catch (error) {
+      console.error('Error deleting milestone:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete milestone' });
+    }
+  }, []);
+
+  const toggleMilestoneCompletion = useCallback(async (id: string) => {
+    try {
+      const milestone = state.milestones.find(m => m.id === id);
+      if (!milestone) return;
+      
+      const updatedMilestone: VisionMilestone = {
+        ...milestone,
+        achievedAt: milestone.achievedAt ? undefined : new Date().toISOString()
+      };
+      
+      await updateMilestone(updatedMilestone);
+      
+    } catch (error) {
+      console.error('Error toggling milestone completion:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update milestone' });
+    }
+  }, [state.milestones, updateMilestone]);
+
+  const getMilestonesForVision = useCallback((visionId: string): VisionMilestone[] => {
+    return state.milestones.filter(m => m.parentVisionId === visionId).sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [state.milestones]);
+
+  // Vision linking functions
+  const linkVisionAsMilestone = useCallback(async (parentVisionId: string, linkedVisionId: string, title?: string) => {
+    try {
+      const linkedVision = getVisionById(linkedVisionId);
+      if (!linkedVision) {
+        throw new Error('Linked vision not found');
+      }
+      
+      // Get current milestones to determine order index
+      const existingMilestones = getMilestonesForVision(parentVisionId);
+      const orderIndex = existingMilestones.length;
+      
+      await addMilestone({
+        parentVisionId,
+        type: 'vision_link',
+        title: title || linkedVision.title,
+        linkedVisionId,
+        orderIndex,
+        achievedAt: linkedVision.status === 'completed' ? linkedVision.accomplishedAt : undefined
+      });
+      
+    } catch (error) {
+      console.error('Error linking vision as milestone:', error);
+      toast({
+        title: "Error",
+        description: "Failed to link vision as milestone.",
+        variant: "destructive"
+      });
+    }
+  }, [addMilestone, getVisionById, getMilestonesForVision]);
+
+  const unlinkVisionMilestone = useCallback(async (milestoneId: string) => {
+    await deleteMilestone(milestoneId);
+  }, [deleteMilestone]);
+
+  const getParentVisions = useCallback(async (linkedVisionId: string): Promise<string[]> => {
+    return await visionStorageService.getParentVisions(linkedVisionId);
+  }, []);
+
+  const checkForCycles = useCallback(async (parentVisionId: string, linkedVisionId: string): Promise<boolean> => {
+    return await visionStorageService.checkForCycles(parentVisionId, linkedVisionId);
+  }, []);
+
+  // Progress calculation
+  const calculateVisionProgress = useCallback(async (visionId: string): Promise<number> => {
+    return await visionStorageService.calculateVisionProgress(visionId);
+  }, []);
+
+  const updateProgress = useCallback(async (visionId: string, percentage: number) => {
+    try {
+      const vision = getVisionById(visionId);
+      if (vision) {
+        const updatedVision: Vision = {
+          ...vision,
+          progressPercentage: percentage,
+          updatedAt: new Date().toISOString()
+        };
+        await updateVision(updatedVision);
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update progress' });
+    }
+  }, [getVisionById, updateVision]);
+
+  // Legacy compatibility functions
+  const addEntry = useCallback((entry: Omit<VisionBoardEntry, 'id' | 'createdAt'>) => {
+    const visionData = {
+      title: entry.title,
+      description: entry.description,
+      media: entry.mediaItems || (entry.imageUrl ? [{
+        id: `media-${Date.now()}`,
+        type: 'image' as const,
+        path: entry.imageUrl,
+        createdAt: new Date().toISOString()
+      }] : []),
+      category: entry.category,
+      linkedTaskIds: entry.linkedTaskIds,
+      importance: entry.importance,
+      successCriteria: entry.successCriteria,
+      targetDate: entry.targetDate,
+      progressPercentage: entry.progressPercentage,
+      notes: entry.notes
     };
+    addVision(visionData);
+  }, [addVision]);
+
+  const updateEntry = useCallback((entry: VisionBoardEntry) => {
+    const vision = state.visions.find(v => v.id === entry.id);
+    if (vision) {
+      const updatedVision: Vision = {
+        ...vision,
+        title: entry.title,
+        description: entry.description,
+        status: entry.completed ? 'completed' : 'active',
+        accomplishedAt: entry.completedAt,
+        media: entry.mediaItems || vision.media,
+        category: entry.category,
+        linkedTaskIds: entry.linkedTaskIds,
+        importance: entry.importance,
+        successCriteria: entry.successCriteria,
+        targetDate: entry.targetDate,
+        progressPercentage: entry.progressPercentage,
+        notes: entry.notes,
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+
+  const deleteEntry = useCallback((id: string) => {
+    deleteVision(id);
+  }, [deleteVision]);
+
+  const getRandomEntry = useCallback((): VisionBoardEntry | null => {
+    const randomVision = getRandomVision();
+    return randomVision ? visionToLegacyEntry(randomVision) : null;
+  }, [getRandomVision]);
+
+  // Legacy milestone functions (simplified implementations)
+  const addMilestone_legacy = useCallback(() => {}, []);
+  const updateMilestone_legacy = useCallback(() => {}, []);
+  const deleteMilestone_legacy = useCallback(() => {}, []);
+  const toggleMilestoneCompletion_legacy = useCallback(() => {}, []);
+  const addJournalEntry = useCallback(() => {}, []);
+  const updateJournalEntry = useCallback(() => {}, []);
+  const deleteJournalEntry = useCallback(() => {}, []);
+  const addMediaItem = useCallback(() => {}, []);
+  const deleteMediaItem = useCallback(() => {}, []);
+  const linkTask = useCallback(() => {}, []);
+  const unlinkTask = useCallback(() => {}, []);
+  const calculateTaskProgress = useCallback(() => 0, []);
+
+  const contextValue: VisionBoardContextType = {
+    state,
     
-    updateEntry(updatedVision);
-  };
-  
-  // Journal methods
-  const addJournalEntry = (visionId: string, entry: Omit<JournalEntry, 'id' | 'createdAt'>) => {
-    const vision = getVisionById(visionId);
-    if (!vision) return;
+    // Vision management
+    addVision,
+    updateVision,
+    deleteVision,
+    completeVision,
+    getVisionById,
+    getRandomVision,
     
-    const newEntry: JournalEntry = {
-      ...entry,
-      id: `journal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-    };
+    // Milestone management  
+    addMilestone,
+    updateMilestone,
+    deleteMilestone,
+    toggleMilestoneCompletion,
+    getMilestonesForVision,
     
-    const updatedVision = {
-      ...vision,
-      journalEntries: [...(vision.journalEntries || []), newEntry],
-    };
+    // Vision linking
+    linkVisionAsMilestone,
+    unlinkVisionMilestone,
+    getParentVisions,
+    checkForCycles,
     
-    updateEntry(updatedVision);
-  };
-  
-  const updateJournalEntry = (visionId: string, entry: JournalEntry) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.journalEntries) return;
+    // Progress
+    calculateVisionProgress,
+    updateProgress,
     
-    const updatedEntries = vision.journalEntries.map(e => 
-      e.id === entry.id ? entry : e
-    );
-    
-    const updatedVision = {
-      ...vision,
-      journalEntries: updatedEntries,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const deleteJournalEntry = (visionId: string, entryId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.journalEntries) return;
-    
-    const updatedEntries = vision.journalEntries.filter(e => e.id !== entryId);
-    
-    const updatedVision = {
-      ...vision,
-      journalEntries: updatedEntries,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  // Media methods
-  const addMediaItem = (visionId: string, item: Omit<MediaItem, 'id' | 'createdAt'>) => {
-    const vision = getVisionById(visionId);
-    if (!vision) return;
-    
-    const newItem: MediaItem = {
-      ...item,
-      id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-    };
-    
-    const updatedVision = {
-      ...vision,
-      mediaItems: [...(vision.mediaItems || []), newItem],
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const deleteMediaItem = (visionId: string, itemId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.mediaItems) return;
-    
-    const updatedItems = vision.mediaItems.filter(item => item.id !== itemId);
-    
-    const updatedVision = {
-      ...vision,
-      mediaItems: updatedItems,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  // Task linking methods
-  const linkTask = (visionId: string, taskId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision) return;
-    
-    // Check if task is already linked
-    if (vision.linkedTaskIds?.includes(taskId)) return;
-    
-    const updatedVision = {
-      ...vision,
-      linkedTaskIds: [...(vision.linkedTaskIds || []), taskId],
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const unlinkTask = (visionId: string, taskId: string) => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.linkedTaskIds) return;
-    
-    const updatedTaskIds = vision.linkedTaskIds.filter(id => id !== taskId);
-    
-    const updatedVision = {
-      ...vision,
-      linkedTaskIds: updatedTaskIds,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  // Progress tracking
-  const updateProgress = (visionId: string, percentage: number) => {
-    const vision = getVisionById(visionId);
-    if (!vision) return;
-    
-    const updatedVision = {
-      ...vision,
-      progressPercentage: percentage,
-    };
-    
-    updateEntry(updatedVision);
-  };
-  
-  const calculateTaskProgress = (visionId: string): number => {
-    const vision = getVisionById(visionId);
-    if (!vision || !vision.linkedTaskIds || vision.linkedTaskIds.length === 0) return 0;
-    
-    // This would ideally check task completion status from TaskContext
-    // For now, just return the stored progress value or 0
-    return vision.progressPercentage || 0;
+    // Legacy compatibility
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    getRandomEntry,
+    addMilestone_legacy,
+    updateMilestone_legacy,
+    deleteMilestone_legacy,
+    toggleMilestoneCompletion_legacy,
+    addJournalEntry,
+    updateJournalEntry,
+    deleteJournalEntry,
+    addMediaItem,
+    deleteMediaItem,
+    linkTask,
+    unlinkTask,
+    calculateTaskProgress
   };
 
   return (
-    <VisionBoardContext.Provider
-      value={{
-        state,
-        addEntry,
-        updateEntry,
-        deleteEntry,
-        getRandomEntry,
-        getVisionById,
-        
-        // Milestone methods
-        addMilestone,
-        updateMilestone,
-        deleteMilestone,
-        toggleMilestoneCompletion,
-        
-        // Journal methods
-        addJournalEntry,
-        updateJournalEntry,
-        deleteJournalEntry,
-        
-        // Media methods
-        addMediaItem,
-        deleteMediaItem,
-        
-        // Task linking methods
-        linkTask,
-        unlinkTask,
-        
-        // Progress tracking
-        updateProgress,
-        calculateTaskProgress,
-      }}
-    >
+    <VisionBoardContext.Provider value={contextValue}>
       {children}
     </VisionBoardContext.Provider>
   );
@@ -502,3 +694,5 @@ export const useVisionBoard = (): VisionBoardContextType => {
   }
   return context;
 };
+
+export default VisionBoardContext;

@@ -32,12 +32,18 @@ const ShadowSelfChallenge: React.FC<ShadowSelfChallengeProps> = ({ onClose }) =>
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Calculate actual performance for today
+  // Calculate actual performance for today (including frog tasks)
   const todaysTasks = tasks.filter(task => 
     task.createdAt.startsWith(today) || 
     (task.completedAt && task.completedAt.startsWith(today))
   );
-  const actualTasksCompleted = todaysTasks.filter(task => task.completed).length;
+  
+  // Count both regular tasks and frog tasks
+  const regularTasksCompleted = todaysTasks.filter(task => task.completed && task.taskType !== 'frog').length;
+  const frogTasksCompleted = todaysTasks.filter(task => task.completed && task.taskType === 'frog').length;
+  const actualTasksCompleted = regularTasksCompleted + frogTasksCompleted;
+  
+  // Get total focus time including frog task time
   const actualFocusTime = todaysTasks.reduce((total, task) => total + (task.totalTimeSpent || 0), 0);
 
   // Generate prediction if none exists

@@ -196,16 +196,36 @@ export interface FrogTask {
   coinBonus: number;
   xpBonus: number;
   streakBonus?: number;
+  // New repetitive frog fields
+  isRepeating?: boolean;
+  repeatType?: 'daily' | 'weekdays'; // daily = all days, weekdays = Mon-Fri only
+  parentFrogId?: string; // Link to the original repeating frog template
+  isTemplate?: boolean; // True for the original repeating frog definition
+}
+
+export interface RepeatableFrogTemplate {
+  id: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium';
+  estimatedTime: number; // in minutes
+  repeatType: 'daily' | 'weekdays';
+  isActive: boolean;
+  createdAt: string;
+  coinBonus: number;
+  xpBonus: number;
 }
 
 export interface FrogModeState {
   isActive: boolean;
   todaysFrog: FrogTask | null;
+  todaysRepeatingFrogs: FrogTask[]; // Up to 3 repeating frogs for today
   interfaceLocked: boolean;
   canOverride: boolean;
   overrideUsed: boolean;
   consecutiveDays: number;
   lastFrogDate?: string;
+  repeatableFrogTemplates: RepeatableFrogTemplate[]; // User's repeating frog templates
 }
 
 // Enhanced GameStats for Phase 2
