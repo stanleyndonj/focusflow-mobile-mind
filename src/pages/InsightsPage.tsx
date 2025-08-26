@@ -1,11 +1,14 @@
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProcrastinationForm from '@/components/insights/ProcrastinationForm';
 import ProcrastinationList from '@/components/insights/ProcrastinationList';
 import { useProcrastination } from '@/contexts/ProcrastinationContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+
+// Lazy load the HabitDashboard for better performance
+const HabitDashboard = lazy(() => import('@/components/habits/HabitDashboard').then(module => ({ default: module.HabitDashboard })));
 
 const InsightsPage: React.FC = () => {
   const { state: { entries } } = useProcrastination();
@@ -47,15 +50,26 @@ const InsightsPage: React.FC = () => {
       <div className="p-4">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">Insights</h1>
-          <p className="text-muted-foreground text-sm">Track and overcome procrastination</p>
+          <p className="text-muted-foreground text-sm">Track habits and overcome procrastination</p>
         </div>
       
-      <Tabs defaultValue="log">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="habits">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="habits">Habits</TabsTrigger>
           <TabsTrigger value="log">Log</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="stats">Stats</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="habits" className="mt-4">
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          }>
+            <HabitDashboard />
+          </Suspense>
+        </TabsContent>
         
         <TabsContent value="log" className="mt-4">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
