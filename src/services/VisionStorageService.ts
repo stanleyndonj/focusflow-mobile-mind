@@ -13,6 +13,10 @@ export interface Vision {
   createdAt: string;
   updatedAt: string;
   
+  // Core features
+  journalEntries?: JournalEntry[]; // CRITICAL: Journal entries for Manifestation Journal
+  milestones?: Milestone[]; // CRITICAL: Milestones for vision linking
+  
   // Legacy fields for backward compatibility
   imageUrl?: string;
   category?: string;
@@ -33,6 +37,22 @@ export interface MediaItem {
   thumbPath?: string;
   mimeType?: string;
   createdAt: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  content: string;
+  prompt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedAt?: string;
+  createdAt?: string;
 }
 
 export interface VisionMilestone {
@@ -267,16 +287,40 @@ class VisionStorageService {
 
   // Save vision
   async saveVision(vision: Vision): Promise<void> {
+    console.log('💾 VisionStorageService: Saving vision with data:', {
+      id: vision.id,
+      title: vision.title,
+      journalEntries: vision.journalEntries?.length || 0,
+      milestones: vision.milestones?.length || 0
+    });
+    
     const visions = await this.loadVisions();
     const existingIndex = visions.findIndex(v => v.id === vision.id);
     
+    const visionToSave = {
+      ...vision,
+      journalEntries: vision.journalEntries || [], // Ensure journal entries are preserved
+      milestones: vision.milestones || [], // Ensure milestones are preserved
+      updatedAt: new Date().toISOString()
+    };
+    
     if (existingIndex >= 0) {
-      visions[existingIndex] = { ...vision, updatedAt: new Date().toISOString() };
+      visions[existingIndex] = visionToSave;
+      console.log('📝 Updated existing vision at index:', existingIndex);
     } else {
-      visions.push({ ...vision, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      visions.push({ ...visionToSave, createdAt: new Date().toISOString() });
+      console.log('➕ Added new vision to storage');
     }
     
     await set(STORAGE_KEYS.VISIONS, visions);
+    
+    // Verify the save by loading it back
+    const savedVisions = await this.loadVisions();
+    const savedVision = savedVisions.find(v => v.id === vision.id);
+    console.log('✅ Verification - Vision saved with:', {
+      journalEntries: savedVision?.journalEntries?.length || 0,
+      milestones: savedVision?.milestones?.length || 0
+    });
   }
 
   // Delete vision and cascade delete milestones

@@ -723,7 +723,7 @@ class GamificationStorage {
       // Migrate old theme preference
       const oldTheme = localStorage.getItem('darkMode') || localStorage.getItem('isDark');
       if (oldTheme && !localStorage.getItem('theme')) {
-        const isDark = oldTheme === 'true' || oldTheme === true;
+        const isDark = oldTheme === 'true';
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
         console.log('✅ Theme preferences migrated successfully');
       }

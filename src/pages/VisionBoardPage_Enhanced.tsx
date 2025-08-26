@@ -154,7 +154,7 @@ const VisionBoardPage: React.FC = () => {
   return (
     <ErrorBoundary>
       <MobileLayout>
-        <div className={`min-h-screen ${themeConfig.background}`}>
+        <div className={`min-h-screen ${themeConfig.backgroundColor || 'bg-white dark:bg-gray-900'}`}>
           {/* Header */}
           <div className="sticky top-0 z-40 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between p-4">
@@ -171,7 +171,7 @@ const VisionBoardPage: React.FC = () => {
                 <ThemeSelector
                   themes={VISION_BOARD_THEMES}
                   selectedTheme={selectedTheme}
-                  onThemeChange={handleThemeChange}
+                  onThemeChange={setSelectedTheme}
                 />
                 
                 <Button 
@@ -300,18 +300,14 @@ const VisionBoardPage: React.FC = () => {
         <DeleteConfirmDialog
           isOpen={isDeleteDialogOpen}
           onConfirm={handleConfirmDelete}
-          onCancel={() => {
-            setIsDeleteDialogOpen(false);
-            setVisionToDelete(null);
-          }}
-          entryTitle={state.visions.find(v => v.id === visionToDelete)?.title || 'this vision'}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          title={state.visions.find(v => v.id === visionToDelete)?.title || ''}
         />
 
         {/* Journal Dialog */}
         <ManifestationJournal
-          isOpen={showJournal}
-          onClose={handleCloseJournal}
-          visionEntry={journalEntry}
+          entry={journalEntry}
+          onClose={() => setShowJournal(false)}
         />
       </MobileLayout>
     </ErrorBoundary>

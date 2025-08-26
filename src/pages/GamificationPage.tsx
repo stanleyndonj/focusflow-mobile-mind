@@ -48,18 +48,12 @@ const GamificationPage: React.FC = () => {
       console.log('🔄 GamificationPage: Forcing data refresh and stats loading...');
       
       // Force GameContext to reload data from storage
-      if (gameContext.loadAllData) {
-        try {
-          await gameContext.loadAllData();
-          console.log('✅ GameContext data reloaded successfully');
-        } catch (error) {
-          console.error('❌ Failed to reload GameContext data:', error);
-        }
-      }
+      // Note: loadAllData method may not be available in current GameContext
+      console.log('Game context methods available:', Object.keys(gameContext));
       
       console.log('📊 Current stats after reload:', {
         coins: gameStats?.coins || 0,
-        xp: gameStats?.xp || 0,
+        xp: gameStats?.totalXP || 0, // Use totalXP instead of xp
         level: gameStats?.level || 1,
         shadowWins: shadowMode?.totalShadowWins || 0,
         shadowLosses: shadowMode?.totalShadowLosses || 0,

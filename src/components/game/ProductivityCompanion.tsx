@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useGame } from '@/contexts/GameContext';
 import { useTasks } from '@/contexts/TaskContext';
-import { ProductivityCompanion } from '@/types/GameTypes';
+import type { ProductivityCompanion } from '@/types/GameTypes';
 
 interface ProductivityCompanionProps {
   onClose?: () => void;

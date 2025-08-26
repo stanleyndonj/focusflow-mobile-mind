@@ -215,9 +215,13 @@ interface VisionBoardContextType {
   addVision: (vision: Omit<Vision, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateVision: (vision: Vision) => Promise<void>;
   deleteVision: (id: string) => Promise<void>;
-  completeVision: (id: string) => Promise<void>;
+  completeVision: (id: string, celebrationCallback?: () => void) => Promise<void>;
+  checkTargetDateCompletions: () => Promise<void>;
   getVisionById: (id: string) => Vision | undefined;
   getRandomVision: () => Vision | null;
+  isVisionOverdue: (vision: Vision) => boolean;
+  getCompletedVisions: () => Vision[];
+  getActiveVisions: () => Vision[];
   
   // Milestone management
   addMilestone: (milestone: Omit<VisionMilestone, 'id' | 'createdAt'>) => Promise<void>;
@@ -343,20 +347,28 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, []);
 
-  const completeVision = useCallback(async (id: string) => {
+  const completeVision = useCallback(async (id: string, celebrationCallback?: () => void) => {
     try {
       const vision = state.visions.find(v => v.id === id);
-      if (!vision) return;
+      if (!vision || vision.status === 'completed') return;
+      
+      console.log(' Completing vision:', vision.title);
       
       const completedVision: Vision = {
         ...vision,
         status: 'completed',
         accomplishedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
       
       await visionStorageService.saveVision(completedVision);
       dispatch({ type: 'UPDATE_VISION', payload: completedVision });
+      
+      //  Trigger celebration animation
+      if (celebrationCallback) {
+        setTimeout(() => celebrationCallback(), 100);
+      }
       
       // Cascade completion to parent visions
       const affectedParents = await visionStorageService.cascadeVisionCompletion(id);
@@ -401,6 +413,38 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.error('Error completing vision:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to complete vision' });
     }
+  }, [state.visions]);
+
+  // 📅 Check for target date completions
+  const checkTargetDateCompletions = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const overdueVisions = state.visions.filter(vision => {
+      return vision.status === 'active' && 
+             vision.targetDate && 
+             vision.targetDate <= today;
+    });
+    
+    return overdueVisions;
+  }, [state.visions]);
+  
+  // 🚨 Check if vision is overdue
+  const isVisionOverdue = useCallback((vision: Vision) => {
+    if (vision.status !== 'active' || !vision.targetDate) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return vision.targetDate < today;
+  }, []);
+  
+  // 📋 Get completed visions (archive)
+  const getCompletedVisions = useCallback(() => {
+    return state.visions.filter(v => v.status === 'completed')
+      .sort((a, b) => new Date(b.completedAt || b.accomplishedAt || b.updatedAt).getTime() - 
+                     new Date(a.completedAt || a.accomplishedAt || a.updatedAt).getTime());
+  }, [state.visions]);
+  
+  // ✨ Get active visions
+  const getActiveVisions = useCallback(() => {
+    return state.visions.filter(v => v.status === 'active')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [state.visions]);
 
   const getVisionById = useCallback((id: string): Vision | undefined => {
@@ -581,7 +625,8 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
       successCriteria: entry.successCriteria,
       targetDate: entry.targetDate,
       progressPercentage: entry.progressPercentage,
-      notes: entry.notes
+      notes: entry.notes,
+      status: 'active' // Add required status property
     };
     addVision(visionData);
   }, [addVision]);
@@ -640,8 +685,12 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
     updateVision,
     deleteVision,
     completeVision,
+    checkTargetDateCompletions,
     getVisionById,
     getRandomVision,
+    isVisionOverdue,
+    getCompletedVisions,
+    getActiveVisions,
     
     // Milestone management  
     addMilestone,

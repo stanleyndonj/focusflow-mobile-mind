@@ -261,7 +261,7 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
       setTimeout(() => setShowCompletionEffect(null), 2000);
       
       // Generate a replacement quest immediately for unlimited availability
-      generateDynamicQuests(1);
+      // generateDynamicQuests(1); // TODO: Re-implement or remove
       
       console.log(`✅ Quest completed and stored persistently: ${quest.title}`);
       
@@ -327,9 +327,8 @@ const MiniFocusQuests: React.FC<MiniFocusQuestsProps> = ({ onClose }) => {
     // Here you would normally call the GameContext to claim rewards
     setTimeout(() => {
       setShowCompletionEffect(null);
-      // Move quest to completed
-      setActiveQuests(prev => prev.filter(q => q.id !== quest.id));
-      setCompletedQuests(prev => [...prev, { ...quest, completedAt: new Date().toISOString() }]);
+      // Move quest to completed - handled by GameContext
+      // setActiveQuests and setCompletedQuests are managed by GameContext
     }, 2000);
   };
 

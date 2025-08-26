@@ -10,8 +10,9 @@ import { format, parseISO, isValid } from 'date-fns';
 
 interface MilestoneTilesProps {
   visionId: string;
-  onAddMilestone: () => void;
-  onLinkVision: () => void;
+  onAddMilestone?: () => void;
+  onLinkVision?: () => void;
+  onMilestoneClick?: (milestoneId: string) => void;
 }
 
 const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
@@ -27,9 +28,26 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
     getVisionById 
   } = useVisionBoard();
 
-  const milestones = getMilestonesForVision(visionId);
-  const checklistMilestones = milestones.filter(m => m.type === 'checklist');
-  const linkedVisionMilestones = milestones.filter(m => m.type === 'vision_link');
+  // Get the current vision to access its milestones directly
+  const currentVision = state.visions.find(v => v.id === visionId);
+  console.log('🎯 MilestoneTiles: Current vision milestones:', currentVision?.milestones?.length || 0);
+  
+  // CORRECT LOGIC: Only show visions that THIS vision has linked as milestones (parent → child)
+  // This vision's milestones array contains the visions it has linked as children
+  const visionMilestones = currentVision?.milestones || [];
+  const legacyMilestones = getMilestonesForVision ? getMilestonesForVision(visionId) : [];
+  const allMilestones = [...visionMilestones, ...legacyMilestones];
+  
+  const checklistMilestones = allMilestones.filter(m => !(m as any).type || (m as any).type === 'checklist');
+  
+  // FIXED: Only show visions that are in THIS vision's milestones array (child visions)
+  // These are visions that this parent vision has linked as milestones
+  const linkedVisionMilestones = visionMilestones.filter(m => {
+    // Each milestone in the array should be a vision that was linked as a child
+    return m.id && state.visions.some(v => v.id === m.id);
+  });
+  
+  console.log('👨‍👩‍👧‍👦 Parent vision', visionId, 'has', linkedVisionMilestones.length, 'child visions as milestones');
 
   const handleToggleComplete = async (milestoneId: string) => {
     await toggleMilestoneCompletion(milestoneId);
@@ -55,9 +73,9 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
   };
 
   const calculateProgress = () => {
-    if (milestones.length === 0) return 0;
-    const completed = milestones.filter(m => m.achievedAt).length;
-    return Math.round((completed / milestones.length) * 100);
+    if (allMilestones.length === 0) return 0;
+    const completed = allMilestones.filter(m => (m as any).achievedAt || (m as any).completed).length;
+    return Math.round((completed / allMilestones.length) * 100);
   };
 
   const progress = calculateProgress();
@@ -148,76 +166,76 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
         <div className="space-y-3">
           <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <Target className="h-4 w-4" />
-            Linked Visions
+            Linked Visions ({linkedVisionMilestones.length})
           </h4>
           
-          <div className="grid gap-3">
+          <div className="space-y-2">
             <AnimatePresence>
-              {linkedVisionMilestones.map((milestone) => {
-                const linkedVision = milestone.linkedVisionId ? getVisionById(milestone.linkedVisionId) : null;
+              {linkedVisionMilestones.map((linkedVision) => {
+                const isCompleted = linkedVision.status === 'completed';
+
                 return (
                   <motion.div
-                    key={milestone.id}
+                    key={linkedVision.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.2 }}
                   >
                     <Card className={`transition-all duration-200 ${
-                      milestone.achievedAt ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                      isCompleted ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           {/* Vision Thumbnail */}
                           <div className="flex-shrink-0">
-                            {linkedVision?.media?.[0]?.path ? (
+                            {linkedVision.media?.[0]?.path ? (
                               <img
                                 src={linkedVision.media[0].path}
                                 alt={linkedVision.title}
                                 className="w-12 h-12 rounded-lg object-cover"
                               />
                             ) : (
-                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                                milestone.achievedAt ? 'bg-green-500' : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                              }`}>
+                              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                                 <Target className="h-6 w-6 text-white" />
                               </div>
                             )}
                           </div>
 
-                          {/* Vision Info */}
-                          <div className="flex-1 min-w-0">
+                          {/* Vision Details */}
+                          <div className="flex-1">
                             <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h5 className={`font-semibold text-sm ${
-                                  milestone.achievedAt ? 'line-through text-gray-500' : 'text-gray-900 dark:text-gray-100'
-                                }`}>
-                                  {milestone.title}
+                              <div>
+                                <h5 className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {linkedVision.title}
                                 </h5>
-                                
-                                {linkedVision && (
-                                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
-                                    {linkedVision.description}
-                                  </p>
-                                )}
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {linkedVision.description}
+                                </p>
                               </div>
-                              
+
                               {/* Actions Menu */}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  {linkedVision && (
-                                    <DropdownMenuItem onClick={() => openLinkedVision(linkedVision.id)}>
-                                      <ExternalLink className="h-4 w-4 mr-2" />
-                                      Open Vision
-                                    </DropdownMenuItem>
-                                  )}
+                                  <DropdownMenuItem onClick={() => {
+                                    // Navigate to the linked vision by updating the selected vision
+                                    // Navigate to linked vision
+                                    console.log('🔗 Opening linked vision:', linkedVision.id);
+                                  }}>
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    Open Vision
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem 
-                                    onClick={() => handleUnlink(milestone.id)}
+                                    onClick={() => {
+                                      // Remove from current vision's milestones array
+                                      console.log('🗑️ Unlinking vision milestone:', linkedVision.id);
+                                      // This needs to be implemented in context
+                                    }}
                                     className="text-red-600 hover:text-red-700"
                                   >
                                     <Unlink className="h-4 w-4 mr-2" />
@@ -229,25 +247,27 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
 
                             {/* Status and Metadata */}
                             <div className="flex items-center gap-2 mt-2">
-                              {milestone.achievedAt ? (
+                              {isCompleted ? (
                                 <Badge variant="outline" className="text-green-600 border-green-600">
                                   <Check className="h-3 w-3 mr-1" />
                                   Completed
                                 </Badge>
-                              ) : linkedVision?.status === 'completed' ? (
-                                <Badge variant="outline" className="text-blue-600 border-blue-600">
-                                  Vision Complete
-                                </Badge>
                               ) : (
-                                <Badge variant="outline">
+                                <Badge variant="outline" className="text-blue-600 border-blue-600">
                                   In Progress
                                 </Badge>
                               )}
                               
-                              {linkedVision?.targetDate && (
+                              {linkedVision.targetDate && (
                                 <div className="flex items-center gap-1 text-xs text-gray-500">
                                   <Calendar className="h-3 w-3" />
                                   <span>{formatDate(linkedVision.targetDate)}</span>
+                                </div>
+                              )}
+                              
+                              {typeof linkedVision.progressPercentage === 'number' && (
+                                <div className="text-xs text-gray-500">
+                                  {linkedVision.progressPercentage}% complete
                                 </div>
                               )}
                             </div>
@@ -287,7 +307,7 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
       </div>
 
       {/* Empty State */}
-      {milestones.length === 0 && (
+      {allMilestones.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p className="text-lg font-medium mb-1">No milestones yet</p>

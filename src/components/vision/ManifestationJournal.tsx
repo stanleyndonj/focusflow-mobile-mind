@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, Edit3, Save, X, Heart, Star, Target, Lightbulb, Quote, Plus, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -87,6 +87,8 @@ const ManifestationJournal: React.FC<ManifestationJournalProps> = ({
   };
 
   const saveJournalResponse = (promptId: string, content: string) => {
+    console.log('🔄 Saving journal response for prompt:', promptId, 'Content:', content.substring(0, 50) + '...');
+    
     const updatedJournalEntries = [...(entry.journalEntries || [])];
     const existingIndex = updatedJournalEntries.findIndex(j => j.prompt === promptId);
     
@@ -96,19 +98,25 @@ const ManifestationJournal: React.FC<ManifestationJournalProps> = ({
         content,
         createdAt: new Date().toISOString()
       };
+      console.log('📝 Updated existing journal entry at index:', existingIndex);
     } else {
-      updatedJournalEntries.push({
+      const newEntry = {
         id: `${Date.now()}-${Math.random()}`,
         content,
         prompt: promptId,
         createdAt: new Date().toISOString()
-      });
+      };
+      updatedJournalEntries.push(newEntry);
+      console.log('➕ Added new journal entry:', newEntry);
     }
 
-    onUpdateEntry({
+    const updatedEntry = {
       ...entry,
       journalEntries: updatedJournalEntries
-    });
+    };
+    
+    console.log('💾 Calling onUpdateEntry with:', updatedEntry.journalEntries?.length, 'entries');
+    onUpdateEntry(updatedEntry);
   };
 
   const saveCustomNote = () => {
@@ -143,6 +151,12 @@ const ManifestationJournal: React.FC<ManifestationJournalProps> = ({
     const isEditing = editingPrompt === prompt.id;
     const response = getJournalResponse(prompt.id);
     const hasResponse = response.length > 0;
+    const [localResponse, setLocalResponse] = useState(response);
+    
+    // Update local response when the saved response changes
+    useEffect(() => {
+      setLocalResponse(getJournalResponse(prompt.id));
+    }, [entry.journalEntries, prompt.id]);
 
     return (
       <motion.div
@@ -178,8 +192,8 @@ const ManifestationJournal: React.FC<ManifestationJournalProps> = ({
           {isEditing ? (
             <div className="space-y-3">
               <Textarea
-                value={response}
-                onChange={(e) => saveJournalResponse(prompt.id, e.target.value)}
+                value={localResponse}
+                onChange={(e) => setLocalResponse(e.target.value)}
                 placeholder="Write your thoughts here..."
                 className="min-h-32 resize-none"
               />
@@ -187,9 +201,22 @@ const ManifestationJournal: React.FC<ManifestationJournalProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setEditingPrompt(null)}
+                  onClick={() => {
+                    setLocalResponse(response);
+                    setEditingPrompt(null);
+                  }}
                 >
-                  Done
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    saveJournalResponse(prompt.id, localResponse);
+                    setEditingPrompt(null);
+                  }}
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  Save
                 </Button>
               </div>
             </div>

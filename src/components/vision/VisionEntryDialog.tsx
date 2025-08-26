@@ -272,7 +272,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ item, onDelete }) => {
     if (item.mimeType) return item.mimeType;
     
     // Try to extract from data URL
-    const extractedType = getMimeTypeFromDataUrl(item.url);
+    const extractedType = getMimeTypeFromDataUrl(item.path);
     if (extractedType) return extractedType;
     
     // Fall back to default types based on media type
@@ -378,7 +378,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ item, onDelete }) => {
       {item.type === 'image' && (
         <div className="aspect-square w-full">
           <img 
-            src={item.url} 
+            src={item.path} 
             alt="Vision board media" 
             className="w-full h-full object-cover"
           />
@@ -389,7 +389,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ item, onDelete }) => {
         <div className="aspect-video w-full relative">
           <video 
             ref={videoRef}
-            src={item.url} 
+            src={item.path} 
             className="w-full h-full object-cover"
             controls={false}
             playsInline
@@ -403,6 +403,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ item, onDelete }) => {
               });
             }}
           />
+          <img src={item.path} alt="Vision media" className="w-full h-32 object-cover rounded" />
           {!isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/20" onClick={handlePlayPause}>
               <div className="rounded-full bg-background/80 p-2 cursor-pointer">
@@ -415,7 +416,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ item, onDelete }) => {
       
       {item.type === 'audio' && (
         <div className="p-4 bg-muted flex items-center justify-between w-full">
-          <audio ref={audioRef} src={item.url} className="hidden" />
+          <audio ref={audioRef} src={item.path} className="hidden" />
           <div className="flex-1">
             <p className="text-sm font-medium">Voice Note</p>
             <p className="text-xs text-muted-foreground">
@@ -669,7 +670,8 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
       const newMediaItem: MediaItem = {
         id: Date.now().toString(),
         type: mediaType,
-        url: base64,
+        path: base64,
+        mimeType: getMimeTypeFromDataUrl(base64),
         createdAt: new Date().toISOString(),
       };
       
@@ -718,8 +720,8 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
             const newMediaItem: MediaItem = {
               id: Date.now().toString(),
               type: 'audio',
-              url: base64,
-              mimeType: recorder.mimeType, // Store the MIME type with the media item
+              path: base64,
+              mimeType: recorder.mimeType,
               createdAt: new Date().toISOString(),
             };
             

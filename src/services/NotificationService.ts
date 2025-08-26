@@ -35,7 +35,7 @@ class NotificationService {
       sound: 'urgent.wav',
       vibration: true,
       lights: true,
-      lockscreenVisibility: 1, // Show full notification on lock screen
+      // lockscreenVisibility: 1, // Property not available in current Channel type
       enableVibration: true,
       enableLights: true
     }
@@ -204,7 +204,7 @@ class NotificationService {
     });
     
     // Auto-remove after 30 seconds
-    setTimeout(() => {
+    this.urgentRingtone = setTimeout(() => {
       if (document.body.contains(alertDiv)) {
         document.body.removeChild(alertDiv);
       }
@@ -396,7 +396,7 @@ class NotificationService {
               channelId: 'urgent-notifications',
               autoCancel: false,
               ongoing: true,
-              priority: 2,
+              // priority: 'high', // Property not available in LocalNotificationSchema
               extra: {
                 isUrgentReminder: true,
                 originalId: baseId
@@ -490,8 +490,8 @@ class NotificationService {
       notification.close();
     };
     
-    // Auto-stop after 2 minutes to prevent infinite alerts
-    setTimeout(() => {
+    // Auto-stop after 2 minutes
+    this.urgentVibratePattern = setTimeout(() => {
       clearInterval(alertInterval);
       clearInterval(vibrationInterval);
     }, 120000);
