@@ -61,8 +61,8 @@ export const HabitDetail: React.FC<HabitDetailProps> = ({
     : currentValue === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/50 overflow-y-auto">
+      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-xl my-8 flex flex-col min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -106,7 +106,7 @@ export const HabitDetail: React.FC<HabitDetailProps> = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[70vh]">
           {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
@@ -246,12 +246,38 @@ export const HabitDetail: React.FC<HabitDetailProps> = ({
             )}
           </div>
 
-          {/* Heatmap */}
+          {/* Enhanced Activity Pattern */}
           <div>
-            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Activity Pattern
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <Calendar size={16} />
+              Activity Pattern & Insights
             </h3>
-            <HeatmapCalendar habit={habit} weeks={12} />
+            <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+              <HeatmapCalendar habit={habit} weeks={24} interactive={true} />
+              
+              {/* Pattern Analysis */}
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+                  <div className="font-semibold text-gray-700 dark:text-gray-300">Recent Pattern</div>
+                  <div className="text-gray-600 dark:text-gray-400 mt-1">
+                    {habit.type === 'good' ? 
+                      `Last 7 days: ${Object.entries(habit.logs).slice(-7).filter(([_, v]) => {
+                        if (habit.trackMode === 'binary') return v === 1;
+                        return v >= (habit.target.times || habit.target.minutes || 0);
+                      }).length}/7 completed` :
+                      `Last 7 days: ${Object.entries(habit.logs).slice(-7).filter(([_, v]) => v === 0).length}/7 avoided`
+                    }
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded p-2">
+                  <div className="font-semibold text-gray-700 dark:text-gray-300">Longest Streak</div>
+                  <div className="text-gray-600 dark:text-gray-400 mt-1">
+                    {habit.stats.bestStreak} days
+                    {habit.stats.bestStreak > 21 && ' 🏆'}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Replacement Reminder */}

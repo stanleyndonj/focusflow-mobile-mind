@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Plus, Filter, Calendar, TrendingUp, Target, Shield, AlertTriangle, Trophy, Zap } from 'lucide-react';
+import { Plus, Filter, Calendar, TrendingUp, Target, Shield, AlertTriangle, Trophy, Zap, Sparkles, Brain, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHabitTracker } from '../../hooks/useHabitTracker';
 import { HabitCardEnhanced } from './HabitCardEnhanced';
@@ -80,100 +80,157 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
   }, [habits, today]);
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Habit Tracker
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Build consistency, break bad habits
-            </p>
+    <div className={`space-y-6 ${className}`}>
+      {/* Enhanced Header with Glassmorphism */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden bg-gradient-to-br from-white/90 via-blue-50/80 to-purple-50/70 
+          dark:from-gray-800/90 dark:via-blue-900/30 dark:to-purple-900/20 
+          backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6"
+      >
+        {/* Animated background elements */}
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-full blur-xl" />
+        <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-500/20 rounded-full blur-xl" />
+        
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+              <Brain className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                Habit Mastery
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Transform your life, one habit at a time
+              </p>
+            </div>
           </div>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 
-              text-white rounded-lg font-medium transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 
+              hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all 
+              shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
           >
             <Plus size={20} />
-            <span>Add Habit</span>
-          </button>
+            <span>Create Habit</span>
+          </motion.button>
         </div>
 
-        {/* Today's Progress */}
-        <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Today's Progress
-            </span>
-            <span className="text-sm font-bold text-gray-900 dark:text-white">
-              {todayProgress.completed}/{todayProgress.total} Complete
-            </span>
+        {/* Enhanced Today's Progress */}
+        <div className="relative mt-6 p-4 bg-gradient-to-r from-white/60 to-gray-50/60 dark:from-gray-800/60 dark:to-gray-900/60 
+          backdrop-blur-sm rounded-xl border border-white/30 dark:border-gray-700/30">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Today's Progress
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-gray-900 dark:text-white">
+                {todayProgress.completed}/{todayProgress.total}
+              </span>
+              <div className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                  {todayProgress.percentage}%
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="relative h-4 bg-gray-200/60 dark:bg-gray-700/60 rounded-full overflow-hidden">
             <motion.div 
-              className="h-full bg-gradient-to-r from-blue-500 to-purple-600"
+              className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg"
               initial={{ width: 0 }}
               animate={{ width: `${todayProgress.percentage}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
+              transition={{ duration: 1, ease: 'easeOut' }}
             />
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
+              animate-pulse opacity-50" />
           </div>
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 text-center">
-            {todayProgress.percentage}% Complete
-          </div>
+          {todayProgress.percentage === 100 && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute -top-2 -right-2 p-2 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full shadow-lg"
+            >
+              <Trophy className="w-4 h-4 text-white" />
+            </motion.div>
+          )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Enhanced Stats Row */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+      >
         <StreakWidget habits={habits} />
         <RecommendationsPanel habits={habits} />
-      </div>
+      </motion.div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex gap-2 flex-1">
-            <button
+      {/* Enhanced Filters */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg 
+          border border-white/20 dark:border-gray-700/50 p-4"
+      >
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex gap-2 flex-1 overflow-x-auto">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setFilterType('all')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                 filterType === 'all'
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               All ({habits.length})
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setFilterType('good')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                 filterType === 'good'
-                  ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               Good ({habits.filter(h => h.type === 'good').length})
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setFilterType('bad')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                 filterType === 'bad'
-                  ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? 'bg-gradient-to-r from-red-500 to-pink-600 text-white shadow-lg'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               Bad ({habits.filter(h => h.type === 'bad').length})
-            </button>
+            </motion.button>
           </div>
           
           <div className="flex gap-2">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="px-4 py-2 text-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl
+                bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm text-gray-900 dark:text-white 
+                focus:ring-2 focus:ring-blue-500/50 transition-all"
             >
               <option value="streak">Sort by Streak</option>
               <option value="consistency">Sort by Consistency</option>
@@ -181,42 +238,68 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
             </select>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Habits Grid */}
+      {/* Enhanced Habits Grid */}
       {filteredAndSortedHabits.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-gradient-to-br from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 
+            backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-12"
+        >
           <div className="text-center">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Target size={32} className="text-gray-400 dark:text-gray-500" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              {filterType === 'all' ? 'No habits yet' : `No ${filterType} habits`}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {filterType === 'all' 
-                ? 'Start building better habits today!' 
-                : `Add some ${filterType} habits to track`}
-            </p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.6, type: 'spring' }}
+              className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl 
+                flex items-center justify-center mx-auto mb-6 shadow-lg"
             >
-              Add Your First Habit
-            </button>
+              <Target size={40} className="text-white" />
+            </motion.div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+              {filterType === 'all' ? 'Ready to start your journey?' : `No ${filterType} habits yet`}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+              {filterType === 'all' 
+                ? 'Transform your life one habit at a time. Every expert was once a beginner.' 
+                : `Create your first ${filterType} habit and begin building momentum.`}
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowAddModal(true)}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 
+                hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl 
+                transform hover:-translate-y-0.5 transition-all"
+            >
+              Create Your First Habit
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
           <AnimatePresence mode="popLayout">
-            {filteredAndSortedHabits.map((habit) => (
+            {filteredAndSortedHabits.map((habit, index) => (
               <motion.div
                 key={habit.id}
                 layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                transition={{ 
+                  duration: 0.3, 
+                  delay: index * 0.05,
+                  type: 'spring',
+                  stiffness: 100
+                }}
               >
                 <HabitCardEnhanced
                   habit={habit}
@@ -227,7 +310,7 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
               </motion.div>
             ))}
           </AnimatePresence>
-        </div>
+        </motion.div>
       )}
 
       {/* Modals */}

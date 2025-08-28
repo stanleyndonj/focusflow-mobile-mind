@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Habit, HabitBreakReason } from '../../types/habit';
-import { Shield, AlertTriangle, Flame, Star, BarChart3, Plus, Minus, CheckCircle2 } from 'lucide-react';
+import { Shield, AlertTriangle, Flame, Star, BarChart3, Plus, Minus, CheckCircle2, Zap, Crown, Diamond } from 'lucide-react';
 
 interface HabitCardEnhancedProps {
   habit: Habit;
@@ -41,121 +41,223 @@ export const HabitCardEnhanced: React.FC<HabitCardEnhancedProps> = ({ habit, onQ
   };
 
   const getStreakIcon = () => {
+    if (currentStreak >= 100) return <Crown className="text-purple-500" size={16} />;
+    if (currentStreak >= 50) return <Diamond className="text-blue-500" size={16} />;
     if (currentStreak >= 30) return <Flame className="text-orange-500" size={16} />;
     if (currentStreak >= 7) return <Star className="text-yellow-500" size={16} />;
+    if (currentStreak >= 3) return <Zap className="text-green-500" size={16} />;
     return null;
   };
 
   return (
     <>
       <motion.div
-        whileHover={{ scale: 1.02 }}
-        className={`relative rounded-2xl p-5 shadow-lg transition-all
+        whileHover={{ scale: 1.03, y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        className={`relative rounded-3xl p-6 shadow-xl transition-all duration-300 backdrop-blur-xl
           ${habit.type === 'good' 
-            ? 'bg-gradient-to-br from-white via-blue-50/50 to-purple-50/30 dark:from-gray-800 dark:via-blue-900/20 dark:to-purple-900/10' 
-            : 'bg-gradient-to-br from-white via-red-50/50 to-orange-50/30 dark:from-gray-800 dark:via-red-900/20 dark:to-orange-900/10'}
+            ? 'bg-gradient-to-br from-white/95 via-blue-50/80 to-purple-50/60 dark:from-gray-800/95 dark:via-blue-900/30 dark:to-purple-900/20' 
+            : 'bg-gradient-to-br from-white/95 via-red-50/80 to-orange-50/60 dark:from-gray-800/95 dark:via-red-900/30 dark:to-orange-900/20'}
           border-2 ${isCompleted 
-            ? habit.type === 'good' ? 'border-green-400/50' : 'border-red-400/50'
-            : 'border-gray-200 dark:border-gray-700'}`}>
+            ? habit.type === 'good' ? 'border-green-400/60 shadow-green-500/20' : 'border-red-400/60 shadow-red-500/20'
+            : 'border-white/30 dark:border-gray-700/50'} hover:shadow-2xl`}>
         
-        {/* Glass effect overlay */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+        {/* Enhanced glass effect overlay */}
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/20 via-white/10 to-transparent pointer-events-none" />
         
-        {/* Header */}
-        <div className="relative flex justify-between items-start mb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full shadow-lg" 
-                style={{ backgroundColor: habit.settings?.color || '#3b82f6' }} />
-              <h3 className="font-bold text-gray-900 dark:text-white text-lg">{habit.title}</h3>
-              {getStreakIcon()}
+        {/* Completion glow effect */}
+        {isCompleted && (
+          <div className={`absolute inset-0 rounded-3xl ${habit.type === 'good' ? 'bg-green-400/10' : 'bg-red-400/10'} pointer-events-none animate-pulse`} />
+        )}
+        
+        {/* Enhanced Header */}
+        <div className="relative flex justify-between items-start mb-5">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="relative">
+                <div className="w-4 h-4 rounded-full shadow-lg animate-pulse" 
+                  style={{ backgroundColor: habit.settings?.color || '#3b82f6' }} />
+                {isCompleted && (
+                  <div className="absolute -inset-1 rounded-full bg-green-400/30 animate-ping" />
+                )}
+              </div>
+              <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight">{habit.title}</h3>
+              <div className="flex items-center gap-1">
+                {getStreakIcon()}
+                {currentStreak >= 7 && (
+                  <div className="px-2 py-0.5 bg-gradient-to-r from-orange-400/20 to-yellow-400/20 rounded-full">
+                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400">🔥</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex gap-3 mt-1 text-xs text-gray-600 dark:text-gray-400">
-              <span className="flex items-center gap-1">
-                {currentStreak} day streak
-              </span>
-              <span>{Math.round(habit.stats.consistency * 100)}% consistent</span>
+            <div className="flex gap-4 text-xs">
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-100/60 dark:bg-blue-900/30 rounded-lg">
+                <span className="font-semibold text-blue-700 dark:text-blue-300">
+                  {currentStreak} day streak
+                </span>
+              </div>
+              <div className="flex items-center gap-1 px-2 py-1 bg-purple-100/60 dark:bg-purple-900/30 rounded-lg">
+                <span className="font-semibold text-purple-700 dark:text-purple-300">
+                  {Math.round(habit.stats.consistency * 100)}% rate
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Modern Progress Bar */}
-        <div className="mb-4">
-          <div className="h-3 bg-gray-200/50 dark:bg-gray-700/50 rounded-full overflow-hidden backdrop-blur">
+        {/* Enhanced Progress Bar */}
+        <div className="mb-5">
+          <div className="relative h-4 bg-gray-200/40 dark:bg-gray-700/40 rounded-full overflow-hidden backdrop-blur-sm">
             <motion.div
+              initial={{ width: 0 }}
               animate={{ width: `${Math.min(percentage, 100)}%` }}
-              className={`h-full rounded-full shadow-lg bg-gradient-to-r ${
-                habit.type === 'good' ? 'from-blue-400 to-purple-500'
-                  : avoidedToday ? 'from-green-400 to-emerald-500' : 'from-red-400 to-pink-500'
-              }`} />
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+              className={`h-full rounded-full shadow-lg relative ${
+                habit.type === 'good' 
+                  ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500'
+                  : avoidedToday 
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                    : 'bg-gradient-to-r from-red-500 to-pink-500'
+              }`}
+            >
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent 
+                animate-pulse opacity-60" />
+            </motion.div>
+            {/* Progress indicator */}
+            {percentage > 0 && (
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <span className="text-xs font-bold text-white drop-shadow-lg">
+                  {Math.round(percentage)}%
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2">
+        {/* Enhanced Actions */}
+        <div className="flex gap-3">
           {habit.type === 'good' ? (
             habit.trackMode === 'binary' ? (
-              <button onClick={() => onQuickLog(habit.id, !isCompleted)}
-                className={`flex-1 py-2.5 px-4 rounded-xl font-semibold transition-all shadow-md
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onQuickLog(habit.id, !isCompleted)}
+                className={`flex-1 py-3 px-4 rounded-2xl font-bold transition-all shadow-lg backdrop-blur-sm
                   ${isCompleted 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-green-500/30'
-                    : 'bg-white dark:bg-gray-700 hover:shadow-lg'}`}>
-                {isCompleted ? '✓ Done' : 'Mark Done'}
-              </button>
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-green-500/40 border border-green-400/50'
+                    : 'bg-white/80 dark:bg-gray-700/80 hover:bg-white dark:hover:bg-gray-600 border border-white/50 dark:border-gray-600/50 hover:shadow-xl'}`}>
+                {isCompleted ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <CheckCircle2 size={18} />
+                    <span>Completed</span>
+                  </div>
+                ) : (
+                  <span>Mark Done</span>
+                )}
+              </motion.button>
             ) : (
               <>
-                <button onClick={() => onQuickLog(habit.id, Math.max(0, todayValue - 1))}
-                  className="p-2.5 bg-white dark:bg-gray-700 rounded-xl shadow-md hover:shadow-lg">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onQuickLog(habit.id, Math.max(0, todayValue - 1))}
+                  className="p-3 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl shadow-lg 
+                    hover:shadow-xl border border-white/50 dark:border-gray-600/50 transition-all">
                   <Minus size={18} />
-                </button>
-                <div className="flex-1 flex items-center justify-center bg-white/50 dark:bg-gray-800/50 rounded-xl">
-                  <span className="font-bold text-xl">{todayValue}
-                    <span className="text-xs ml-1">{habit.trackMode === 'count' ? 'x' : 'min'}</span>
+                </motion.button>
+                <div className="flex-1 flex items-center justify-center bg-gradient-to-r from-white/60 to-gray-50/60 
+                  dark:from-gray-800/60 dark:to-gray-700/60 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-gray-600/30">
+                  <span className="font-bold text-2xl text-gray-900 dark:text-white">{todayValue}
+                    <span className="text-sm ml-1 text-gray-600 dark:text-gray-400">
+                      {habit.trackMode === 'count' ? 'times' : 'min'}
+                    </span>
                   </span>
                 </div>
-                <button onClick={() => onQuickLog(habit.id, todayValue + 1)}
-                  className="p-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-md hover:shadow-lg">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onQuickLog(habit.id, todayValue + 1)}
+                  className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl shadow-lg 
+                    hover:shadow-xl border border-blue-400/50 transition-all">
                   <Plus size={18} />
-                </button>
+                </motion.button>
               </>
             )
           ) : (
             <>
-              <button onClick={() => onQuickLog(habit.id, 0)}
-                className={`flex-1 py-2.5 rounded-xl font-semibold shadow-md
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => onQuickLog(habit.id, 0)}
+                className={`flex-1 py-3 rounded-2xl font-bold shadow-lg backdrop-blur-sm transition-all
                   ${avoidedToday 
-                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                    : 'bg-white dark:bg-gray-700'}`}>
-                <Shield className="mx-auto" size={18} />
-              </button>
-              <button onClick={() => setShowBreakModal(true)}
-                className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-semibold shadow-md">
-                <AlertTriangle className="mx-auto" size={18} />
-              </button>
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-green-500/40 border border-green-400/50'
+                    : 'bg-white/80 dark:bg-gray-700/80 hover:bg-white dark:hover:bg-gray-600 border border-white/50 dark:border-gray-600/50'}`}>
+                <div className="flex items-center justify-center gap-2">
+                  <Shield size={18} />
+                  <span>{avoidedToday ? 'Avoided!' : 'Resist'}</span>
+                </div>
+              </motion.button>
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowBreakModal(true)}
+                className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-2xl 
+                  font-bold shadow-lg hover:shadow-xl border border-red-400/50 transition-all">
+                <div className="flex items-center justify-center gap-2">
+                  <AlertTriangle size={18} />
+                  <span>Broke</span>
+                </div>
+              </motion.button>
             </>
           )}
-          <button onClick={() => onDetail(habit)}
-            className="p-2.5 bg-white dark:bg-gray-700 rounded-xl shadow-md hover:shadow-lg">
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => onDetail(habit)}
+            className="p-3 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl shadow-lg 
+              hover:shadow-xl border border-white/50 dark:border-gray-600/50 transition-all">
             <BarChart3 size={18} />
-          </button>
+          </motion.button>
         </div>
 
-        {/* Replacement suggestion for bad habits */}
+        {/* Enhanced replacement suggestion for bad habits */}
         {habit.type === 'bad' && habit.settings?.replacement && (
-          <div className="mt-3 p-2.5 bg-blue-100/50 dark:bg-blue-900/30 rounded-lg backdrop-blur">
-            <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
-              💡 Try instead: {habit.settings.replacement}
-            </p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 p-3 bg-gradient-to-r from-blue-100/60 to-purple-100/60 
+              dark:from-blue-900/40 dark:to-purple-900/40 rounded-2xl backdrop-blur-sm 
+              border border-blue-200/50 dark:border-blue-700/50">
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-blue-500 rounded-lg">
+                <span className="text-xs">💡</span>
+              </div>
+              <p className="text-xs text-blue-800 dark:text-blue-200 font-semibold">
+                Try instead: <span className="font-bold">{habit.settings.replacement}</span>
+              </p>
+            </div>
+          </motion.div>
         )}
       </motion.div>
 
-      {/* Break Reason Modal */}
+      {/* Enhanced Break Reason Modal */}
       {showBreakModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-bold mb-4">Log Break Reason</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }} 
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-3xl p-8 max-w-md w-full 
+              shadow-2xl border border-white/20 dark:border-gray-700/50">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-red-500 rounded-xl">
+                <AlertTriangle className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Log Break Details</h3>
+            </div>
             
             <div className="space-y-3">
               <div>
@@ -186,15 +288,23 @@ export const HabitCardEnhanced: React.FC<HabitCardEnhancedProps> = ({ habit, onQ
               </div>
             </div>
 
-            <div className="flex gap-2 mt-4">
-              <button onClick={handleBreakBadHabit}
-                className="flex-1 py-2 bg-red-500 text-white rounded-lg font-semibold">
+            <div className="flex gap-3 mt-6">
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleBreakBadHabit}
+                className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-2xl 
+                  font-bold shadow-lg hover:shadow-xl transition-all">
                 Log Break
-              </button>
-              <button onClick={() => setShowBreakModal(false)}
-                className="flex-1 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg font-semibold">
+              </motion.button>
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowBreakModal(false)}
+                className="flex-1 py-3 bg-gray-200/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl 
+                  font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
                 Cancel
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         </div>

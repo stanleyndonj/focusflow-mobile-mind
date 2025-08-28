@@ -254,7 +254,9 @@ export function useHabitTracker() {
   const queueStatsUpdate = useCallback((habitId: string) => {
     if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
     updateTimerRef.current = setTimeout(() => {
-      const habit = habits.find(h => h.id === habitId);
+      // Get fresh habit data from current state
+      const currentHabits = getHabits();
+      const habit = currentHabits.find(h => h.id === habitId);
       if (!habit) return;
 
       const newStats: HabitStats = {
@@ -265,8 +267,8 @@ export function useHabitTracker() {
         lastUpdated: new Date().toISOString()
       };
       dispatch({ type: 'UPDATE_STATS', payload: { id: habitId, stats: newStats } });
-    }, 100);
-  }, [habits, calculateStreak, calculateConsistency, updateHabitScore]);
+    }, 10); // Reduced timeout for faster updates
+  }, [getHabits, calculateStreak, calculateConsistency, updateHabitScore]);
 
   return {
     habits,
