@@ -2,7 +2,9 @@
 import { LocalNotifications, ScheduleOptions, ActionPerformed, Channel, LocalNotificationsPlugin } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { toast } from '@/components/ui/use-toast';
+import CustomAudioService from './CustomAudioService';
 
 class NotificationService {
   private channels: Channel[] = [
@@ -14,7 +16,9 @@ class NotificationService {
       visibility: 1, // Public
       sound: 'beep.wav',
       vibration: true,
-      lights: true
+      lights: true,
+      enableVibration: true,
+      enableLights: true
     },
     {
       id: 'timer-notifications',
@@ -24,7 +28,9 @@ class NotificationService {
       visibility: 1, // Public
       sound: 'timer-complete.mp3',
       vibration: true,
-      lights: true
+      lights: true,
+      enableVibration: true,
+      enableLights: true
     },
     {
       id: 'urgent-notifications',
@@ -35,7 +41,30 @@ class NotificationService {
       sound: 'urgent.wav',
       vibration: true,
       lights: true,
-      // lockscreenVisibility: 1, // Property not available in current Channel type
+      enableVibration: true,
+      enableLights: true
+    },
+    {
+      id: 'custom-task-notifications',
+      name: 'Custom Task Notifications',
+      description: 'Task notifications with custom sounds',
+      importance: 5,
+      visibility: 1,
+      sound: 'custom-task-sound.wav',
+      vibration: true,
+      lights: true,
+      enableVibration: true,
+      enableLights: true
+    },
+    {
+      id: 'custom-timer-notifications',
+      name: 'Custom Timer Notifications',
+      description: 'Timer notifications with custom sounds',
+      importance: 5,
+      visibility: 1,
+      sound: 'custom-timer-sound.wav',
+      vibration: true,
+      lights: true,
       enableVibration: true,
       enableLights: true
     }
@@ -47,6 +76,7 @@ class NotificationService {
   constructor() {
     this.initializeChannels();
     this.registerListeners();
+    this.initializeCustomAudio();
   }
 
   public async initializeChannels() {
@@ -68,20 +98,33 @@ class NotificationService {
 
   private async setupCustomSounds() {
     try {
+      if (!Capacitor.isNativePlatform()) {
+        console.log('Web platform detected - custom notification channels not supported, using browser notifications with custom sounds');
+        return;
+      }
+
+      const hasCustomTaskSound = CustomAudioService.hasCustomAudio('task');
+      const hasCustomTimerSound = CustomAudioService.hasCustomAudio('timer');
       const customTaskSound = localStorage.getItem('customTaskSound');
-      const customTimerSound = localStorage.getItem('customTimerSound');
+      const customTimerSound = localStorage.getItem('customTimerSoundFile');
       
-      // Update channel with custom sounds if available
-      if (customTaskSound) {
-        const taskChannel = {...this.channels[0], sound: 'custom-task-sound.mp3'};
-        await LocalNotifications.createChannel(taskChannel);
-        console.log('Updated task channel with custom sound');
+      // Create custom channels with actual sound files if custom sounds exist
+      if (hasCustomTaskSound && customTaskSound) {
+        const customTaskChannel = {
+          ...this.channels[3],
+          sound: customTaskSound // Use actual filename
+        };
+        await LocalNotifications.createChannel(customTaskChannel);
+        console.log(`Created custom task notification channel with sound: ${customTaskSound}`);
       }
       
-      if (customTimerSound) {
-        const timerChannel = {...this.channels[1], sound: 'custom-timer-sound.mp3'};
-        await LocalNotifications.createChannel(timerChannel);
-        console.log('Updated timer channel with custom sound');
+      if (hasCustomTimerSound && customTimerSound) {
+        const customTimerChannel = {
+          ...this.channels[4],
+          sound: customTimerSound // Use actual filename
+        };
+        await LocalNotifications.createChannel(customTimerChannel);
+        console.log(`Created custom timer notification channel with sound: ${customTimerSound}`);
       }
     } catch (error) {
       console.error('Error setting up custom sounds:', error);
@@ -186,9 +229,8 @@ class NotificationService {
     audio.volume = 0.8;
     audio.play().catch(e => console.log('Could not play urgent sound:', e));
     
-    if ('vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200, 100, 200]);
-    }
+    // Enhanced vibration for urgent notifications
+    this.triggerVibration('urgent');
     
     // Handle button clicks
     const dismissBtn = alertDiv.querySelector('#urgentDismiss');
@@ -300,16 +342,21 @@ class NotificationService {
         notificationTime.setTime(Date.now() + 5000);
       }
       
-      // Get custom sound if available
-      const customTaskSound = localStorage.getItem('customTaskSound');
+      // Check for custom sound
+      const hasCustomTaskSound = CustomAudioService.hasCustomAudio('task');
       const customTaskSoundName = localStorage.getItem('customTaskSoundName');
+      const customTaskSound = localStorage.getItem('customTaskSoundFile'); // Get notification-ready filename
       
-      // Determine sound to use
+      // Determine sound and channel to use
       let soundToUse = 'beep.wav'; // default
+      let channelId = 'task-notifications';
+      
       if (useUrgentStyle) {
         soundToUse = 'urgent.wav';
-      } else if (customTaskSound) {
-        soundToUse = 'custom-task-sound.mp3';
+        channelId = 'urgent-notifications';
+      } else if (hasCustomTaskSound && customTaskSound) {
+        soundToUse = customTaskSound; // Use actual saved filename
+        channelId = 'custom-task-notifications';
       }
       
       // Schedule the notification with enhanced urgent style features
@@ -327,11 +374,12 @@ class NotificationService {
             sound: soundToUse,
             smallIcon: 'ic_stat_focus_brain',
             iconColor: useUrgentStyle ? '#EF4444' : '#8B5CF6', // Red for urgent, purple for normal
-            channelId: useUrgentStyle ? 'urgent-notifications' : 'task-notifications',
+            channelId: channelId,
             autoCancel: !useUrgentStyle, // Urgent notifications require manual dismissal
             ongoing: useUrgentStyle, // Keep urgent notifications visible
             priority: useUrgentStyle ? 2 : 1, // Max priority for urgent
             visibility: 1, // Show on lock screen
+            vibrate: true, // Enable vibration
             extra: {
               taskId: taskId,
               isUrgent: useUrgentStyle,
@@ -363,12 +411,24 @@ class NotificationService {
       
       console.log(`Scheduled ${useUrgentStyle ? 'urgent ' : ''}task notification for task ${taskId} at ${notificationTime.toISOString()}`);
     } catch (error) {
-      console.error('Error scheduling notification:', error);
+      console.error('Error scheduling task notification:', error);
+      
+      // Fallback to browser notification with custom sound
+      if (!Capacitor.isNativePlatform()) {
+        console.log('Falling back to browser notification with custom sound');
+        setTimeout(async () => {
+          await this.showBrowserNotification(title, body, 'task');
+          this.triggerVibration('task');
+        }, Math.max(0, scheduledTime.getTime() - Date.now()));
+        return true;
+      }
+      
       toast({
-        title: "Failed to set notification",
+        title: "Failed to schedule notification",
         description: "There was an error scheduling your task notification.",
         variant: "destructive"
       });
+      return false;
     }
   }
 
@@ -420,29 +480,24 @@ class NotificationService {
     return await this.requestPermissions();
   }
 
-  private showBrowserNotification(title: string, body: string, isUrgent: boolean = false) {
-    // Fallback to browser notifications if available
+  private async showBrowserNotification(title: string, body: string, type?: 'timer' | 'task') {
     if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification(
-        isUrgent ? `🚨 URGENT: ${title}` : title, 
-        { 
-          body: isUrgent ? `⚠️ ${body} - Click to dismiss` : body, 
-          icon: '/favicon.ico',
-          requireInteraction: isUrgent, // Keep urgent notifications visible until clicked
-          tag: isUrgent ? 'urgent-task' : 'task-notification' // Replace previous notifications
-        }
-      );
-      
-      // For urgent notifications, play continuous sound and vibration
-      if (isUrgent && localStorage.getItem('urgentNotifications') === 'true') {
-        this.playUrgentBrowserAlert(notification);
-      }
+      new Notification(title, {
+        body,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico'
+      });
     } else if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
-          this.showBrowserNotification(title, body, isUrgent);
+          this.showBrowserNotification(title, body, type);
         }
       });
+    }
+
+    // Play custom sound if available
+    if (type) {
+      await this.playCustomSound(type);
     }
   }
 
@@ -459,9 +514,7 @@ class NotificationService {
     };
     
     const vibrateDevice = () => {
-      if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200, 100, 200]); // Urgent vibration pattern
-      }
+      this.triggerVibration('urgent');
     };
     
     // Play sound and vibrate immediately
@@ -506,8 +559,14 @@ class NotificationService {
       return false;
     }
     
-    // Determine which sound to use (custom or default)
-    const hasCustomSound = localStorage.getItem('customTimerSound') !== null;
+    // Check for custom timer sound
+    const hasCustomSound = CustomAudioService.hasCustomAudio('timer');
+    const customTimerSoundName = localStorage.getItem('customTimerSoundName');
+    const customTimerSound = localStorage.getItem('customTimerSoundFile'); // Get notification-ready filename
+    
+    // Determine sound and channel
+    const soundToUse = (hasCustomSound && customTimerSound) ? customTimerSound : 'timer-complete.mp3';
+    const channelId = hasCustomSound ? 'custom-timer-notifications' : 'timer-notifications';
     
     try {
       // Generate a unique ID for timer notifications
@@ -523,20 +582,40 @@ class NotificationService {
               at: scheduledTime,
               allowWhileIdle: true
             },
-            sound: hasCustomSound ? 'custom-timer-sound.mp3' : 'timer-complete.mp3',
+            sound: soundToUse,
             smallIcon: 'ic_stat_focus_brain',
             iconColor: '#8B5CF6',
-            channelId: 'timer-notifications',
+            channelId: channelId,
             autoCancel: true,
-            ongoing: false
+            ongoing: false,
+            vibrate: true, // Enable vibration
+            extra: {
+              customSound: customTimerSoundName || null,
+              hasVibration: true
+            }
           }
         ]
       });
       
       console.log(`Timer notification scheduled at ${scheduledTime.toISOString()}`);
+      
+      // Trigger immediate vibration for confirmation
+      this.triggerVibration('timer');
+      
       return true;
     } catch (error) {
       console.error('Error scheduling timer notification:', error);
+      
+      // Fallback to browser notification with custom sound
+      if (!Capacitor.isNativePlatform()) {
+        console.log('Falling back to browser notification with custom sound');
+        setTimeout(async () => {
+          await this.showBrowserNotification(title, body, 'timer');
+          this.triggerVibration('timer');
+        }, Math.max(0, scheduledTime.getTime() - Date.now()));
+        return true;
+      }
+      
       toast({
         title: "Failed to set notification",
         description: "There was an error scheduling your timer notification.",
@@ -638,6 +717,190 @@ class NotificationService {
     this.permissionRequested = false;
     this.hasPermission = false;
     localStorage.removeItem('notificationPermissionDenied');
+  }
+
+  // Initialize custom audio service
+  private async initializeCustomAudio() {
+    try {
+      await CustomAudioService.initializeAudioDirectory();
+      console.log('Custom audio service initialized');
+    } catch (error) {
+      console.error('Error initializing custom audio service:', error);
+    }
+  }
+
+  // Enhanced vibration patterns for different notification types
+  private async triggerVibration(type: 'task' | 'timer' | 'urgent') {
+    try {
+      if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Haptics')) {
+        // Use Capacitor Haptics for native platforms
+        switch (type) {
+          case 'urgent':
+            // Strong, repeated vibration for urgent notifications
+            await Haptics.impact({ style: ImpactStyle.Heavy });
+            setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 200);
+            setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 400);
+            break;
+          case 'timer':
+            // Medium vibration for timer completion
+            await Haptics.impact({ style: ImpactStyle.Medium });
+            setTimeout(() => Haptics.impact({ style: ImpactStyle.Light }), 100);
+            break;
+          case 'task':
+            // Light vibration for task notifications
+            await Haptics.impact({ style: ImpactStyle.Light });
+            break;
+        }
+      } else if ('vibrate' in navigator) {
+        // Fallback to Web Vibration API
+        switch (type) {
+          case 'urgent':
+            navigator.vibrate([200, 100, 200, 100, 200, 100, 200]);
+            break;
+          case 'timer':
+            navigator.vibrate([300, 100, 300]);
+            break;
+          case 'task':
+            navigator.vibrate([150]);
+            break;
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering vibration:', error);
+    }
+  }
+
+  // Update custom sound for a notification type
+  async updateCustomSound(type: 'timer' | 'task', audioBlob: Blob, originalName: string, segment: any): Promise<boolean> {
+    try {
+      // Save the custom audio
+      const success = await CustomAudioService.saveCustomAudio(type, audioBlob, originalName, segment);
+      
+      if (success) {
+        // Update notification channels
+        await this.setupCustomSounds();
+        
+        toast({
+          title: 'Custom Sound Saved',
+          description: `${originalName} will now be used for ${type} notifications`,
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error updating ${type} custom sound:`, error);
+      toast({
+        title: 'Error',
+        description: `Failed to save custom ${type} sound`,
+        variant: 'destructive'
+      });
+      return false;
+    }
+  }
+
+  // Remove custom sound
+  async removeCustomSound(type: 'timer' | 'task'): Promise<boolean> {
+    try {
+      const success = await CustomAudioService.removeCustomAudio(type);
+      
+      if (success) {
+        // Reset to default channels
+        await this.initializeChannels();
+        
+        toast({
+          title: 'Custom Sound Removed',
+          description: `${type} notifications will use the default sound`,
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error removing ${type} custom sound:`, error);
+      return false;
+    }
+  }
+
+  // Play custom sound for web notifications
+  private async playCustomSound(type: 'timer' | 'task'): Promise<void> {
+    try {
+      const audioUrl = await CustomAudioService.getAudioUrl(type);
+      if (audioUrl) {
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.8;
+        audio.play().catch(e => {
+          console.log('Could not play custom sound:', e);
+          // Fallback to default sound
+          this.playDefaultSound(type);
+        });
+        console.log(`Playing custom ${type} sound`);
+      } else {
+        this.playDefaultSound(type);
+      }
+    } catch (error) {
+      console.error(`Error playing custom ${type} sound:`, error);
+      this.playDefaultSound(type);
+    }
+  }
+
+  // Play default notification sound
+  private playDefaultSound(type: 'timer' | 'task'): void {
+    try {
+      const soundFile = type === 'timer' ? '/sounds/timer-complete.mp3' : '/sounds/beep.wav';
+      const audio = new Audio(soundFile);
+      audio.volume = 0.6;
+      audio.play().catch(e => console.log('Could not play default sound:', e));
+    } catch (error) {
+      console.error('Error playing default sound:', error);
+    }
+  }
+
+  // Test custom notification
+  async testCustomNotification(type: 'timer' | 'task'): Promise<void> {
+    if (!Capacitor.isNativePlatform()) {
+      // Immediate test for web platform
+      toast({
+        title: 'Testing Custom Sound',
+        description: `Testing ${type} notification sound...`,
+      });
+      
+      // Play custom sound immediately
+      await this.playCustomSound(type);
+      this.triggerVibration(type);
+      
+      // Show browser notification
+      setTimeout(async () => {
+        await this.showBrowserNotification(
+          `Test Custom ${type.charAt(0).toUpperCase() + type.slice(1)} Sound`,
+          `This is a test of your custom ${type} notification`,
+          type
+        );
+      }, 500);
+      
+      return;
+    }
+
+    // Native platform test
+    const testTime = new Date(Date.now() + 2000); // 2 seconds from now
+    
+    if (type === 'timer') {
+      await this.scheduleTimerNotification(
+        'Test Custom Timer Sound',
+        'This is a test of your custom timer notification',
+        testTime
+      );
+    } else {
+      await this.scheduleTaskNotification(
+        'test-custom-task',
+        'Test Custom Task Sound',
+        'This is a test of your custom task notification',
+        testTime,
+        false
+      );
+    }
   }
 }
 

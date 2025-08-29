@@ -3,8 +3,9 @@ import MobileLayout from '@/components/layout/MobileLayout';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Trash2, Download, Share2, Moon, Sun, Target, Sparkles, Palette } from 'lucide-react';
+import { Trash2, Download, Share2, Moon, Sun, Target, Sparkles, Palette, Volume2, Settings } from 'lucide-react';
 import CustomSoundSelector from '@/components/settings/CustomSoundSelector';
+import NotificationSoundSettings from '@/components/settings/NotificationSoundSettings';
 import callStyleNotificationService from '@/services/CallStyleNotificationService';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useTimer } from '@/contexts/TimerContext';
@@ -20,6 +21,7 @@ import { useTheme } from '../contexts/ThemeContext';
 const SettingsPage: React.FC = () => {
   // Would integrate with device notification system in a real mobile app
   const [allowNotifications, setAllowNotifications] = React.useState(true);
+  const [showCustomSoundSettings, setShowCustomSoundSettings] = React.useState(false);
   
   // Vision Board settings
   const [showMotivationalReminders, setShowMotivationalReminders] = React.useState(() => {
@@ -178,6 +180,15 @@ const SettingsPage: React.FC = () => {
     show: { opacity: 1, y: 0 }
   };
   
+  // Handle custom sound settings navigation
+  if (showCustomSoundSettings) {
+    return (
+      <MobileLayout>
+        <NotificationSoundSettings onClose={() => setShowCustomSoundSettings(false)} />
+      </MobileLayout>
+    );
+  }
+
   return (
     <MobileLayout>
       <motion.div 
@@ -312,22 +323,23 @@ const SettingsPage: React.FC = () => {
                 </div>
                 
                 <div className="pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
-                  <h3 className="text-sm font-medium mb-4">Notification Sounds</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium">Custom Notification Sounds</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCustomSoundSettings(true)}
+                      className="flex items-center gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-900/20"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      <Settings className="h-4 w-4" />
+                      Customize
+                    </Button>
+                  </div>
                   
-                  <div className="space-y-5">
-                    <CustomSoundSelector 
-                      onSoundSelected={(soundPath) => {
-                        console.log('Timer notification sound selected:', soundPath);
-                        toast({
-                          title: "Sound Updated",
-                          description: "Timer notification sound has been updated."
-                        });
-                      }}
-                      currentSound={callStyleNotificationService.getCurrentRingtone()}
-                    />
-                    
-                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                      Select audio files from your device to personalize notifications
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Upload large audio files (up to 50MB) and select precise 10-second segments for your timer and task notifications. All notifications include vibration on mobile devices.
                     </p>
                   </div>
                 </div>

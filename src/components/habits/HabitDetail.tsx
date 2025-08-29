@@ -3,10 +3,12 @@
  * Detailed view and logging interface for individual habits
  */
 
-import React, { useState } from 'react';
-import { X, Edit, Trash, Check, Plus, Minus, Calendar, TrendingUp, Target, Clock } from 'lucide-react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
+import { format, isToday, parseISO, isSameDay } from 'date-fns';
+import { Calendar, X, TrendingUp, Target, Flame, Award, Activity, RotateCcw, Zap, Lightbulb, AlertTriangle, Brain, Sparkles, Edit, Trash, Clock, Minus, Plus } from 'lucide-react';
 import { Habit } from '../../types/habit';
 import { HeatmapCalendar } from './HeatmapCalendar';
+import { aiInsightGenerator } from '../../services/ai/AIInsightGenerator';
 
 interface HabitDetailProps {
   habit: Habit;
@@ -15,22 +17,51 @@ interface HabitDetailProps {
   onEdit: (habit: Habit) => void;
   onDelete: (habitId: string) => void;
   onLog: (habitId: string, date: string, value: number | boolean) => void;
+  selectedDate?: string;
 }
 
-export const HabitDetail: React.FC<HabitDetailProps> = ({
-  habit,
+export const HabitDetail = memo<HabitDetailProps>(({ 
+  habit, 
   isOpen,
-  onClose,
+  onClose, 
   onEdit,
   onDelete,
-  onLog
+  onLog, 
+  selectedDate: initialSelectedDate 
 }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [inputValue, setInputValue] = useState<number>(0);
+  const [selectedDate, setSelectedDate] = useState(initialSelectedDate || new Date().toISOString().split('T')[0]);
+  const [inputValue, setInputValue] = useState(0);
+  const [aiInsight, setAiInsight] = useState<string>('');
+  const [loadingAiInsight, setLoadingAiInsight] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const currentValue = habit.logs[selectedDate];
   const hasValue = currentValue !== undefined;
+
+  // Load AI insight for this specific habit
+  useEffect(() => {
+    const loadInsight = async () => {
+      setLoadingAiInsight(true);
+      try {
+        const insight = await aiInsightGenerator.getQuickAIInsight([habit]);
+        setAiInsight(insight);
+      } catch (error) {
+        console.log('AI insight temporarily unavailable');
+      } finally {
+        setLoadingAiInsight(false);
+      }
+    };
+
+    loadInsight();
+  }, [habit]);
+
+  // Calculate stats
+  const { canLogToday } = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      canLogToday: isSameDay(parseISO(today), parseISO(selectedDate)),
+    };
+  }, [selectedDate]);
 
   const handleLog = () => {
     if (habit.trackMode === 'binary') {
@@ -280,12 +311,48 @@ export const HabitDetail: React.FC<HabitDetailProps> = ({
             </div>
           </div>
 
-          {/* Replacement Reminder */}
-          {habit.type === 'bad' && habit.settings?.replacement && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                💡 Remember: Instead of "{habit.title}", try "{habit.settings.replacement}"
+          {/* AI Insight Section */}
+          {aiInsight && (
+            <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-lg relative">
+              <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse" title="AI Generated"></div>
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2 text-sm">
+                <Brain size={16} className="text-purple-600" />
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">AI</span>
+                Intelligent Analysis
+              </h4>
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                {aiInsight}
               </p>
+              {loadingAiInsight && (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-blue-600">Analyzing patterns...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Replacement Reminders for Bad Habits */}
+          {habit.type === 'bad' && (
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2 text-sm">
+                <RotateCcw size={16} />
+                Replace with Positive Actions
+              </h4>
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                  <Zap size={12} />
+                  When you feel the urge, try: Deep breathing, drink water, or go for a short walk
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                  <Lightbulb size={12} />
+                  Identity shift: "I am someone who chooses healthy alternatives"
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                  <AlertTriangle size={12} />
+                  Track triggers: What situations lead to this habit?
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -318,6 +385,18 @@ export const HabitDetail: React.FC<HabitDetailProps> = ({
           </div>
         )}
       </div>
+      
+      {/* AI Attribution */}
+      {aiInsight && (
+        <div className="text-center mt-2">
+          <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
+            <Sparkles size={12} />
+            <span>Powered by intelligent pattern analysis</span>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+});
+
+HabitDetail.displayName = 'HabitDetail';

@@ -3,7 +3,7 @@
  * Main dashboard for habit tracking
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Filter, Calendar, TrendingUp, Target, Shield, AlertTriangle, Trophy, Zap, Sparkles, Brain, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHabitTracker } from '../../hooks/useHabitTracker';
@@ -13,6 +13,7 @@ import { RecommendationsPanel } from './RecommendationsPanel';
 import { AddEditHabitModal } from './AddEditHabitModal';
 import { HabitDetail } from './HabitDetail';
 import { Habit, HabitType, HabitBreakReason } from '../../types/habit';
+import { aiInsightGenerator } from '../../services/ai/AIInsightGenerator';
 
 interface HabitDashboardProps {
   className?: string;
@@ -25,8 +26,33 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
   const [detailHabit, setDetailHabit] = useState<Habit | undefined>();
   const [filterType, setFilterType] = useState<'all' | 'good' | 'bad'>('all');
   const [sortBy, setSortBy] = useState<'streak' | 'consistency' | 'name'>('streak');
+  const [aiMotivation, setAiMotivation] = useState<string>('');
+  const [loadingMotivation, setLoadingMotivation] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
+
+  // Load AI motivation message
+  useEffect(() => {
+    const loadMotivation = async () => {
+      if (habits.length === 0) return;
+      
+      setLoadingMotivation(true);
+      try {
+        const motivation = await aiInsightGenerator.getAIMotivation(habits);
+        setAiMotivation(motivation);
+      } catch (error) {
+        console.log('AI motivation temporarily unavailable');
+      } finally {
+        setLoadingMotivation(false);
+      }
+    };
+
+    loadMotivation();
+    
+    // Refresh motivation every 4 hours
+    const interval = setInterval(loadMotivation, 4 * 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [habits]);
 
   const filteredAndSortedHabits = useMemo(() => {
     let filtered = habits;
@@ -106,6 +132,27 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
                 <Sparkles className="w-4 h-4" />
                 Transform your life, one habit at a time
               </p>
+              {aiMotivation && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 p-2 bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-900/20 dark:to-purple-900/20 
+                    rounded-lg border border-blue-200/50 dark:border-blue-700/50 relative"
+                >
+                  <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" title="AI Generated"></div>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                    <Brain size={12} className="text-purple-600" />
+                    <span className="text-xs text-blue-600 dark:text-blue-400 font-mono">AI</span>
+                    {aiMotivation}
+                  </p>
+                  {loadingMotivation && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className="w-2 h-2 border border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs text-blue-600">Analyzing...</span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </div>
           </div>
           <motion.button
@@ -164,6 +211,35 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
           )}
         </div>
       </motion.div>
+
+      {/* AI Quick Insight Banner */}
+      {habits.length > 0 && aiMotivation && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 
+            backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 relative overflow-hidden"
+        >
+          {/* Subtle animated background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-400/5 via-purple-400/5 to-pink-400/5 animate-pulse" />
+          <div className="relative flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-md">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-mono text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2 py-0.5 rounded-full">AI</span>
+                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Smart Insights</span>
+              </div>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                {aiMotivation}
+              </p>
+            </div>
+            <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          </div>
+        </motion.div>
+      )}
 
       {/* Enhanced Stats Row */}
       <motion.div 
