@@ -50,7 +50,7 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     // Check notification permission on load
     const checkPermission = async () => {
-      const hasPermission = await NotificationService.requestPermissions();
+      const hasPermission = await NotificationService.checkAndRequestPermission();
       setHasNotificationPermission(hasPermission);
     };
     
@@ -69,162 +69,172 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
     
     if (!title.trim()) return;
     
-    const hasValidNotification = enableNotification && dueDate && dueTime;
-    let notifyAt: string | undefined = undefined;
-    
-    if (hasValidNotification) {
-      const notificationDate = new Date(dueDate!);
-      const [hours, minutes] = dueTime.split(':').map(Number);
-      notificationDate.setHours(hours, minutes);
-      notifyAt = notificationDate.toISOString();
-    }
-    
-    const taskId = Date.now().toString();
-    
-    // Calculate duration if start and end times are provided
-    let calculatedDuration = duration || 30; // Default to 30 minutes if duration is undefined
-    
-    // Validate and sanitize duration
-    if (typeof calculatedDuration !== 'number' || isNaN(calculatedDuration) || calculatedDuration <= 0) {
-      calculatedDuration = 30; // Default fallback
-    }
-    
-    if (startTime && endTime) {
-      try {
-        const start = startTime.split(':').map(Number);
-        const end = endTime.split(':').map(Number);
+    try {
+      const hasValidNotification = enableNotification && dueDate && dueTime;
+      let notifyAt: string | undefined = undefined;
+      
+      if (hasValidNotification) {
+        const notificationDate = new Date(dueDate!);
+        const [hours, minutes] = dueTime.split(':').map(Number);
+        notificationDate.setHours(hours, minutes);
+        notifyAt = notificationDate.toISOString();
+      }
+      
+      const taskId = Date.now().toString();
+      
+      // Calculate duration if start and end times are provided
+      let calculatedDuration = duration || 30; // Default to 30 minutes if duration is undefined
+      
+      // Validate and sanitize duration
+      if (typeof calculatedDuration !== 'number' || isNaN(calculatedDuration) || calculatedDuration <= 0) {
+        calculatedDuration = 30; // Default fallback
+      }
+      
+      if (startTime && endTime) {
+        try {
+          const start = startTime.split(':').map(Number);
+          const end = endTime.split(':').map(Number);
+          
+          // Validate time parsing
+          if (start.length === 2 && end.length === 2 && 
+              !isNaN(start[0]) && !isNaN(start[1]) && 
+              !isNaN(end[0]) && !isNaN(end[1])) {
+            
+            const startMinutes = start[0] * 60 + start[1];
+            const endMinutes = end[0] * 60 + end[1];
+            
+            if (endMinutes > startMinutes) {
+              calculatedDuration = endMinutes - startMinutes;
+            }
+          }
+        } catch (error) {
+          console.warn('Error calculating duration from time range:', error);
+          // Keep the default calculatedDuration
+        }
+      }
+      
+      // Final validation to ensure no NaN values
+      if (isNaN(calculatedDuration) || calculatedDuration <= 0) {
+        calculatedDuration = 30;
+      }
+      
+      console.log(`🥷 Final calculatedDuration: ${calculatedDuration} minutes`);
+      
+      // Validate all numeric values to prevent serialization errors
+      const safeNumericValue = (value: any, defaultValue: number = 0): number => {
+        const num = typeof value === 'number' ? value : parseFloat(value);
+        return isNaN(num) || !isFinite(num) ? defaultValue : Math.round(num);
+      };
+      
+      const safeDuration = safeNumericValue(calculatedDuration, 30);
+      const safeEstimatedDuration = safeNumericValue(calculatedDuration * 60, 1800); // 30 minutes in seconds
+      
+      console.log(`🥷 Safe duration values: duration=${safeDuration}, estimatedDuration=${safeEstimatedDuration}`);
+      
+      // Create scheduledFor timestamp for Shadow Mode tracking
+      console.log(`🥷 Creating task "${title.trim()}":`);
+      console.log(`  - dueDate: ${dueDate ? dueDate.toISOString() : 'None'}`);
+      console.log(`  - startTime: ${startTime || 'None'}`);
+      console.log(`  - endTime: ${endTime || 'None'}`);
+      
+      let scheduledFor: string | undefined = undefined;
+      if (dueDate && startTime) {
+        try {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const scheduledDateTime = new Date(dueDate);
+          scheduledDateTime.setHours(hours, minutes, 0, 0);
+          scheduledFor = scheduledDateTime.toISOString();
+          console.log(`🥷 Task "${title.trim()}" scheduled for: ${scheduledDateTime.toLocaleString()}`);
+          console.log(`  - scheduledFor ISO: ${scheduledFor}`);
+        } catch (error) {
+          console.error(`❌ Error creating scheduledFor for task "${title.trim()}":`, error);
+        }
+      } else {
+        console.log(`⚠️ Task "${title.trim()}" will NOT have scheduledFor (missing dueDate or startTime)`);
+      }
+      
+      const newTask: Omit<Task, 'id' | 'createdAt'> = {
+        title: title.trim(),
+        description: description.trim(),
+        completed: false,
+        dueDate: dueDate ? dueDate.toISOString() : undefined,
+        dueTime: dueTime || undefined,
+        startTime: startTime || undefined,
+        endTime: endTime || undefined,
+        scheduledFor: scheduledFor, // Critical for Shadow Mode tracking
+        duration: safeDuration, // Validated integer value
+        estimatedDuration: safeEstimatedDuration, // Validated seconds value
+        notifyAt,
+        hasNotification: !!hasValidNotification,
+        priority,
+        category,
+        tags: [],
+        subtasks: subtasks.map((text, index) => ({
+          id: `new-subtask-${index}`,
+          title: text,
+          completed: false,
+          createdAt: new Date().toISOString(),
+        })),
+        isPriority: false,
+        recurrence: recurrence,
+        isMonthlyTask: isMonthlyTask,
+        isActive: recurrence !== 'none' ? true : undefined,
+        completedAt: undefined,
+        updatedAt: new Date().toISOString(),
+        totalTimeSpent: 0, // Validated numeric value
+        focusSessions: [],
+        notes: [],
+        links: [],
+        actualDuration: 0, // Validated numeric value
+        column: 'backlog',
+        // Gamification numeric fields - ensure they're not NaN
+        xp: 0,
+        coinReward: 0,
+        completionXP: 0,
+        streak: 0,
+        // Shadow Mode tracking flag - initialize to false for new tasks
+        shadowDuelProcessed: false
+      };
+      
+      addTask(newTask);
+
+      // Schedule notification if enabled
+      if (hasValidNotification && notifyAt) {
+        const notificationTime = new Date(notifyAt);
         
-        // Validate time parsing
-        if (start.length === 2 && end.length === 2 && 
-            !isNaN(start[0]) && !isNaN(start[1]) && 
-            !isNaN(end[0]) && !isNaN(end[1])) {
+        if (!hasNotificationPermission) {
+          const granted = await NotificationService.checkAndRequestPermission();
+          setHasNotificationPermission(granted);
           
-          const startMinutes = start[0] * 60 + start[1];
-          const endMinutes = end[0] * 60 + end[1];
-          
-          if (endMinutes > startMinutes) {
-            calculatedDuration = endMinutes - startMinutes;
+          if (!granted) {
+            toast({
+              title: "Notification permission required",
+              description: "Please enable notifications to receive task reminders",
+              variant: "destructive"
+            });
           }
         }
-      } catch (error) {
-        console.warn('Error calculating duration from time range:', error);
-        // Keep the default calculatedDuration
-      }
-    }
-    
-    // Final validation to ensure no NaN values
-    if (isNaN(calculatedDuration) || calculatedDuration <= 0) {
-      calculatedDuration = 30;
-    }
-    
-    console.log(`🥷 Final calculatedDuration: ${calculatedDuration} minutes`);
-    
-    // Validate all numeric values to prevent serialization errors
-    const safeNumericValue = (value: any, defaultValue: number = 0): number => {
-      const num = typeof value === 'number' ? value : parseFloat(value);
-      return isNaN(num) || !isFinite(num) ? defaultValue : Math.round(num);
-    };
-    
-    const safeDuration = safeNumericValue(calculatedDuration, 30);
-    const safeEstimatedDuration = safeNumericValue(calculatedDuration * 60, 1800); // 30 minutes in seconds
-    
-    console.log(`🥷 Safe duration values: duration=${safeDuration}, estimatedDuration=${safeEstimatedDuration}`);
-    
-    // Create scheduledFor timestamp for Shadow Mode tracking
-    console.log(`🥷 Creating task "${title.trim()}":`);
-    console.log(`  - dueDate: ${dueDate ? dueDate.toISOString() : 'None'}`);
-    console.log(`  - startTime: ${startTime || 'None'}`);
-    console.log(`  - endTime: ${endTime || 'None'}`);
-    
-    let scheduledFor: string | undefined = undefined;
-    if (dueDate && startTime) {
-      try {
-        const [hours, minutes] = startTime.split(':').map(Number);
-        const scheduledDateTime = new Date(dueDate);
-        scheduledDateTime.setHours(hours, minutes, 0, 0);
-        scheduledFor = scheduledDateTime.toISOString();
-        console.log(`🥷 Task "${title.trim()}" scheduled for: ${scheduledDateTime.toLocaleString()}`);
-        console.log(`  - scheduledFor ISO: ${scheduledFor}`);
-      } catch (error) {
-        console.error(`❌ Error creating scheduledFor for task "${title.trim()}":`, error);
-      }
-    } else {
-      console.log(`⚠️ Task "${title.trim()}" will NOT have scheduledFor (missing dueDate or startTime)`);
-    }
-    
-    const newTask: Omit<Task, 'id' | 'createdAt'> = {
-      title: title.trim(),
-      description: description.trim(),
-      completed: false,
-      dueDate: dueDate ? dueDate.toISOString() : undefined,
-      dueTime: dueTime || undefined,
-      startTime: startTime || undefined,
-      endTime: endTime || undefined,
-      scheduledFor: scheduledFor, // Critical for Shadow Mode tracking
-      duration: safeDuration, // Validated integer value
-      estimatedDuration: safeEstimatedDuration, // Validated seconds value
-      notifyAt,
-      hasNotification: !!hasValidNotification,
-      priority,
-      category,
-      tags: [],
-      subtasks: subtasks.map((text, index) => ({
-        id: `new-subtask-${index}`,
-        title: text,
-        completed: false,
-        createdAt: new Date().toISOString(),
-      })),
-      isPriority: false,
-      recurrence: recurrence,
-      isMonthlyTask: isMonthlyTask,
-      isActive: recurrence !== 'none' ? true : undefined,
-      completedAt: undefined,
-      updatedAt: new Date().toISOString(),
-      totalTimeSpent: 0, // Validated numeric value
-      focusSessions: [],
-      notes: [],
-      links: [],
-      actualDuration: 0, // Validated numeric value
-      column: 'backlog',
-      // Gamification numeric fields - ensure they're not NaN
-      xp: 0,
-      coinReward: 0,
-      completionXP: 0,
-      streak: 0,
-      // Shadow Mode tracking flag - initialize to false for new tasks
-      shadowDuelProcessed: false
-    };
-    
-    addTask(newTask);
-
-    // Schedule notification if enabled
-    if (hasValidNotification && notifyAt) {
-      const notificationTime = new Date(notifyAt);
-      
-      if (!hasNotificationPermission) {
-        const granted = await NotificationService.requestPermissions();
-        setHasNotificationPermission(granted);
         
-        if (!granted) {
-          toast({
-            title: "Notification permission required",
-            description: "Please enable notifications to receive task reminders",
-            variant: "destructive"
-          });
+        if (hasNotificationPermission) {
+          NotificationService.scheduleTaskNotification(
+            taskId,
+            `Task Due: ${title}`,
+            description || 'Time to complete your task!',
+            notificationTime
+          );
         }
       }
       
-      if (hasNotificationPermission) {
-        NotificationService.scheduleTaskNotification(
-          taskId,
-          `Task Due: ${title}`,
-          description || 'Time to complete your task!',
-          notificationTime
-        );
-      }
+      // Successfully added task, close dialog
+      handleClose();
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast({
+        title: "Error adding task",
+        description: "Failed to create the task. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    handleClose();
   };
 
   const handleAddSubtask = () => {
@@ -653,7 +663,7 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
                       setEnableNotification(checked);
                       
                       if (checked && !hasNotificationPermission) {
-                        const granted = await NotificationService.requestPermissions();
+                        const granted = await NotificationService.checkAndRequestPermission();
                         setHasNotificationPermission(granted);
                         
                         if (!granted) {
@@ -774,7 +784,7 @@ const AddTaskDialog: React.FC<AddTaskDialogProps> = ({ isOpen, onClose }) => {
           </Button>
           <Button 
             type="button" 
-            onClick={handleSubmit} 
+            onClick={handleSubmit}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Add Task

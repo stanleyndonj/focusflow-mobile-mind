@@ -95,7 +95,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log('Requesting notification permissions...');
       
       if (isNativePlatform && Capacitor.isPluginAvailable('LocalNotifications')) {
-        const result = await NotificationService.requestPermissions();
+        const result = await NotificationService.checkAndRequestPermission();
         setHasPermission(result);
         
         // Update permission status

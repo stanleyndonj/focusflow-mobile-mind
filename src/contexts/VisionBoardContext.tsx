@@ -634,13 +634,24 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
   const updateEntry = useCallback((entry: VisionBoardEntry) => {
     const vision = state.visions.find(v => v.id === entry.id);
     if (vision) {
+      // Handle media properly - convert imageUrl to media format if needed
+      let media = entry.mediaItems || [];
+      if (entry.imageUrl && (!entry.mediaItems || entry.mediaItems.length === 0)) {
+        media = [{
+          id: `media-${Date.now()}`,
+          type: 'image' as const,
+          path: entry.imageUrl,
+          createdAt: new Date().toISOString()
+        }];
+      }
+      
       const updatedVision: Vision = {
         ...vision,
         title: entry.title,
         description: entry.description,
         status: entry.completed ? 'completed' : 'active',
         accomplishedAt: entry.completedAt,
-        media: entry.mediaItems || vision.media,
+        media: media,
         category: entry.category,
         linkedTaskIds: entry.linkedTaskIds,
         importance: entry.importance,
@@ -648,8 +659,13 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
         targetDate: entry.targetDate,
         progressPercentage: entry.progressPercentage,
         notes: entry.notes,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        // Preserve journal entries and milestones
+        journalEntries: entry.journalEntries || vision.journalEntries || [],
+        milestones: entry.milestones || vision.milestones || []
       };
+      
+      console.log('Updating vision with media:', updatedVision.media);
       updateVision(updatedVision);
     }
   }, [state.visions, updateVision]);
@@ -663,19 +679,166 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
     return randomVision ? visionToLegacyEntry(randomVision) : null;
   }, [getRandomVision]);
 
-  // Legacy milestone functions (simplified implementations)
-  const addMilestone_legacy = useCallback(() => {}, []);
-  const updateMilestone_legacy = useCallback(() => {}, []);
-  const deleteMilestone_legacy = useCallback(() => {}, []);
-  const toggleMilestoneCompletion_legacy = useCallback(() => {}, []);
-  const addJournalEntry = useCallback(() => {}, []);
-  const updateJournalEntry = useCallback(() => {}, []);
-  const deleteJournalEntry = useCallback(() => {}, []);
-  const addMediaItem = useCallback(() => {}, []);
-  const deleteMediaItem = useCallback(() => {}, []);
-  const linkTask = useCallback(() => {}, []);
-  const unlinkTask = useCallback(() => {}, []);
-  const calculateTaskProgress = useCallback(() => 0, []);
+  // Legacy milestone functions - properly implemented
+  const addMilestone_legacy = useCallback((visionId: string, milestone: Omit<Milestone, 'id' | 'completed' | 'completedAt'>) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const newMilestone: Milestone = {
+        ...milestone,
+        id: `milestone-${Date.now()}`,
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      const updatedVision: Vision = {
+        ...vision,
+        milestones: [...(vision.milestones || []), newMilestone],
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const updateMilestone_legacy = useCallback((visionId: string, milestone: Milestone) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision && vision.milestones) {
+      const updatedVision: Vision = {
+        ...vision,
+        milestones: vision.milestones.map(m => m.id === milestone.id ? milestone : m),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const deleteMilestone_legacy = useCallback((visionId: string, milestoneId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision && vision.milestones) {
+      const updatedVision: Vision = {
+        ...vision,
+        milestones: vision.milestones.filter(m => m.id !== milestoneId),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const toggleMilestoneCompletion_legacy = useCallback((visionId: string, milestoneId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision && vision.milestones) {
+      const updatedVision: Vision = {
+        ...vision,
+        milestones: vision.milestones.map(m => 
+          m.id === milestoneId 
+            ? { ...m, completed: !m.completed, completedAt: !m.completed ? new Date().toISOString() : undefined }
+            : m
+        ),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const addJournalEntry = useCallback((visionId: string, entry: Omit<JournalEntry, 'id' | 'createdAt'>) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const newEntry: JournalEntry = {
+        ...entry,
+        id: `journal-${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+      const updatedVision: Vision = {
+        ...vision,
+        journalEntries: [...(vision.journalEntries || []), newEntry],
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const updateJournalEntry = useCallback((visionId: string, entry: JournalEntry) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision && vision.journalEntries) {
+      const updatedVision: Vision = {
+        ...vision,
+        journalEntries: vision.journalEntries.map(e => e.id === entry.id ? entry : e),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const deleteJournalEntry = useCallback((visionId: string, entryId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision && vision.journalEntries) {
+      const updatedVision: Vision = {
+        ...vision,
+        journalEntries: vision.journalEntries.filter(e => e.id !== entryId),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const addMediaItem = useCallback((visionId: string, item: Omit<MediaItem, 'id' | 'createdAt'>) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const newItem: MediaItem = {
+        ...item,
+        id: `media-${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+      const updatedVision: Vision = {
+        ...vision,
+        media: [...(vision.media || []), newItem],
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const deleteMediaItem = useCallback((visionId: string, itemId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const updatedVision: Vision = {
+        ...vision,
+        media: vision.media.filter(item => item.id !== itemId),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const linkTask = useCallback((visionId: string, taskId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const updatedVision: Vision = {
+        ...vision,
+        linkedTaskIds: [...(vision.linkedTaskIds || []), taskId],
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const unlinkTask = useCallback((visionId: string, taskId: string) => {
+    const vision = state.visions.find(v => v.id === visionId);
+    if (vision) {
+      const updatedVision: Vision = {
+        ...vision,
+        linkedTaskIds: (vision.linkedTaskIds || []).filter(id => id !== taskId),
+        updatedAt: new Date().toISOString()
+      };
+      updateVision(updatedVision);
+    }
+  }, [state.visions, updateVision]);
+  
+  const calculateTaskProgress = useCallback((visionId: string) => {
+    // Calculate progress based on completed linked tasks
+    const vision = state.visions.find(v => v.id === visionId);
+    if (!vision || !vision.linkedTaskIds || vision.linkedTaskIds.length === 0) return 0;
+    // Would need task context to calculate actual progress
+    return 0;
+  }, [state.visions]);
 
   const contextValue: VisionBoardContextType = {
     state,

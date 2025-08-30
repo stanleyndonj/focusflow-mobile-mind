@@ -15,16 +15,22 @@ const config: CapacitorConfig = {
       smallIcon: "ic_stat_focus_brain",
       iconColor: "#8B5CF6",
       sound: true, // Enable sounds
-      // Enable exact notifications and background support
+      // Enhanced background notification support
       schedule: {
-        allowWhileIdle: true
+        allowWhileIdle: true,
+        exact: true // Request exact timing
       },
       channelDefaults: {
-        importance: 5, // High importance for all channels
-        visibility: 1, // Public
+        importance: 5, // Max importance for reliable delivery
+        visibility: 1, // Public - show on lock screen
         vibration: true,
-        lights: true
-      }
+        lights: true,
+        enableVibration: true,
+        enableLights: true
+      },
+      // Request background permission and battery optimization exemption
+      requestPermissions: true,
+      requestExactAlarm: true
     },
     // Allow for app state management
     App: {
@@ -55,6 +61,19 @@ const config: CapacitorConfig = {
         folder: "resources/notifications",
         scale: ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]
       }
+    ],
+    // Enhanced permissions for reliable background notifications
+    permissions: [
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.USE_EXACT_ALARM",
+      "android.permission.WAKE_LOCK",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.VIBRATE",
+      "android.permission.ACCESS_NOTIFICATION_POLICY",
+      "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.READ_EXTERNAL_STORAGE"
     ]
   },
   // Make sure background task handling is enabled for iOS

@@ -48,7 +48,7 @@ const App = () => {
           
           // Don't automatically request permissions on app start
           // Let the user trigger permission request when needed
-          const currentStatus = await NotificationService.requestPermissions();
+          const currentStatus = await NotificationService.checkAndRequestPermission();
           console.log('Initial notification setup complete. Permission granted:', currentStatus);
         } else {
           console.log('Running on web platform - native notifications not available');

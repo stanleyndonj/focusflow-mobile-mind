@@ -309,226 +309,276 @@ const CustomAudioPicker: React.FC<CustomAudioPickerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-              <FileAudio className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Custom {type === 'timer' ? 'Timer' : 'Task'} Sound
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Select an audio file and choose a 10-second segment
-              </p>
-            </div>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] overflow-hidden">
+      <div className="h-full flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 safe-area-top">
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Custom {type.charAt(0).toUpperCase() + type.slice(1)} Sound
+            </h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              Upload and edit audio files
+            </p>
           </div>
           <button
             onClick={onCancel}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors ml-4"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* File Upload */}
-          {!selectedFile && (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
-            >
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Choose Audio File
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Supports MP3, WAV, M4A and other audio formats up to 50MB
-              </p>
-            </div>
-          )}
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
+          <div className="p-4 space-y-6 pb-32">
+            {/* File Upload */}
+            {!selectedFile && (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
+              >
+                <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-base font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Choose Audio File
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  MP3, WAV, M4A up to 50MB
+                </p>
+              </div>
+            )}
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading audio...</span>
-            </div>
-          )}
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center p-6">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading audio...</span>
+              </div>
+            )}
 
-          {/* Audio Player and Timeline */}
-          {selectedFile && audioUrl && !isLoading && (
-            <div className="space-y-4">
-              {/* File Info */}
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • {formatTime(duration)}
-                    </p>
+            {/* Audio Player and Timeline */}
+            {selectedFile && audioUrl && !isLoading && (
+              <div className="space-y-4">
+                {/* File Info */}
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB • {formatTime(duration)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-2 flex-shrink-0"
+                    >
+                      Change
+                    </button>
                   </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                </div>
+
+                {/* Segment Selection */}
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-3">
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <Scissors className="w-4 h-4" />
+                      Select 10-Second Segment
+                    </h4>
+                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                      <Clock className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                        <span className="font-mono text-sm">
+                          {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                        </span>
+                        <span className="text-blue-600 dark:text-blue-400 font-medium">
+                          Duration: {formatTime(segment.duration)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Timeline */}
+                  <div
+                    ref={timelineRef}
+                    className="relative h-12 bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer select-none touch-manipulation"
+                    onClick={handleTimelineClick}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={(e) => {
+                      const touch = e.touches[0];
+                      const rect = timelineRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        const x = touch.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const clickTime = percentage * duration;
+                        if (clickTime < segment.startTime + 0.5) {
+                          setIsDragging('start');
+                        } else if (clickTime > segment.endTime - 0.5) {
+                          setIsDragging('end');
+                        }
+                      }
+                    }}
+                    onTouchMove={(e) => {
+                      if (!isDragging) return;
+                      const touch = e.touches[0];
+                      const rect = timelineRef.current?.getBoundingClientRect();
+                      if (rect) {
+                        const x = touch.clientX - rect.left;
+                        const percentage = Math.max(0, Math.min(1, x / rect.width));
+                        const newTime = percentage * duration;
+                        if (isDragging === 'start') {
+                          const newStart = Math.max(0, Math.min(newTime, segment.endTime - 1));
+                          setSegment(prev => ({ ...prev, startTime: newStart, duration: prev.endTime - newStart }));
+                        } else if (isDragging === 'end') {
+                          const newEnd = Math.min(duration, Math.max(newTime, segment.startTime + 1));
+                          const maxEnd = Math.min(newEnd, segment.startTime + 10);
+                          setSegment(prev => ({ ...prev, endTime: maxEnd, duration: maxEnd - prev.startTime }));
+                        }
+                      }
+                    }}
+                    onTouchEnd={() => setIsDragging(null)}
                   >
-                    Change File
+                    {/* Waveform placeholder */}
+                    <div className="absolute inset-1 bg-gradient-to-r from-blue-200 to-purple-200 dark:from-blue-800 dark:to-purple-800 rounded opacity-50" />
+                  
+                    {/* Current playback position */}
+                    {duration > 0 && (
+                      <div
+                        className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
+                        style={{ left: `${(currentTime / duration) * 100}%` }}
+                      />
+                    )}
+
+                    {/* Selected segment overlay */}
+                    {duration > 0 && (
+                      <div
+                        className="absolute top-1 bottom-1 bg-blue-500/30 border border-blue-500 rounded z-10"
+                        style={{
+                          left: `${(segment.startTime / duration) * 100}%`,
+                          width: `${((segment.endTime - segment.startTime) / duration) * 100}%`
+                        }}
+                      />
+                    )}
+
+                    {/* Start handle */}
+                    {duration > 0 && (
+                      <div
+                        className="absolute top-0 bottom-0 w-3 bg-blue-600 rounded cursor-ew-resize z-30 hover:bg-blue-700 touch-manipulation"
+                        style={{ left: `calc(${(segment.startTime / duration) * 100}% - 6px)` }}
+                        onMouseDown={handleMouseDown('start')}
+                      />
+                    )}
+
+                    {/* End handle */}
+                    {duration > 0 && (
+                      <div
+                        className="absolute top-0 bottom-0 w-3 bg-blue-600 rounded cursor-ew-resize z-30 hover:bg-blue-700 touch-manipulation"
+                        style={{ left: `calc(${(segment.endTime / duration) * 100}% - 6px)` }}
+                        onMouseDown={handleMouseDown('end')}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Audio Controls */}
+                <div className="flex items-center justify-center gap-3 py-4">
+                  <button
+                    onClick={togglePlayback}
+                    className="p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full transition-colors"
+                    disabled={!selectedFile}
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </button>
+                  
+                  <button
+                    onClick={previewSegment}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    disabled={!selectedFile}
+                  >
+                    <Volume2 className="h-3 w-3" />
+                    <span className="text-sm">Preview</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Segment Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    <Scissors className="w-4 h-4" />
-                    Select 10-Second Segment
-                  </h4>
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <Clock className="w-4 h-4" />
-                    {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
-                    <span className="text-blue-600 dark:text-blue-400">
-                      ({formatTime(segment.duration)})
-                    </span>
+                {/* Segment length warning */}
+                {segment.duration > 10 && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      ⚠️ Segment is longer than 10 seconds. Please adjust the selection.
+                    </p>
                   </div>
-                </div>
-
-                {/* Timeline */}
-                <div
-                  ref={timelineRef}
-                  className="relative h-16 bg-gray-200 dark:bg-gray-700 rounded-lg cursor-pointer select-none"
-                  onClick={handleTimelineClick}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                >
-                  {/* Waveform placeholder */}
-                  <div className="absolute inset-2 bg-gradient-to-r from-blue-200 to-purple-200 dark:from-blue-800 dark:to-purple-800 rounded opacity-50" />
-                  
-                  {/* Current playback position */}
-                  {duration > 0 && (
-                    <div
-                      className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
-                      style={{ left: `${(currentTime / duration) * 100}%` }}
-                    />
-                  )}
-
-                  {/* Selected segment overlay */}
-                  {duration > 0 && (
-                    <div
-                      className="absolute top-2 bottom-2 bg-blue-500/30 border border-blue-500 rounded z-10"
-                      style={{
-                        left: `${(segment.startTime / duration) * 100}%`,
-                        width: `${((segment.endTime - segment.startTime) / duration) * 100}%`
-                      }}
-                    />
-                  )}
-
-                  {/* Start handle */}
-                  {duration > 0 && (
-                    <div
-                      className="absolute top-1 bottom-1 w-2 bg-blue-600 rounded cursor-ew-resize z-30 hover:bg-blue-700"
-                      style={{ left: `calc(${(segment.startTime / duration) * 100}% - 4px)` }}
-                      onMouseDown={handleMouseDown('start')}
-                    />
-                  )}
-
-                  {/* End handle */}
-                  {duration > 0 && (
-                    <div
-                      className="absolute top-1 bottom-1 w-2 bg-blue-600 rounded cursor-ew-resize z-30 hover:bg-blue-700"
-                      style={{ left: `calc(${(segment.endTime / duration) * 100}% - 4px)` }}
-                      onMouseDown={handleMouseDown('end')}
-                    />
-                  )}
-                </div>
+                )}
               </div>
-
-              {/* Audio Controls */}
-              <div className="flex items-center justify-center gap-3 py-4">
-                <button
-                  onClick={togglePlayback}
-                  className="p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full transition-colors"
-                  disabled={!selectedFile}
-                >
-                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                </button>
-                
-                <button
-                  onClick={previewSegment}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                  disabled={!selectedFile}
-                >
-                  <Volume2 className="h-4 w-4" />
-                  Preview Segment
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={processAndSaveAudio}
-                  disabled={isProcessing || segment.duration > 10}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      Save Custom Sound
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={onCancel}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {/* Segment length warning */}
-              {segment.duration > 10 && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    ⚠️ Segment is longer than 10 seconds. Please adjust the selection.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Hidden elements */}
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={() => setIsPlaying(false)}
-              className="hidden"
-            />
-          )}
-
-          {/* File input (hidden) */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-
+            )}
+          </div>
         </div>
+
+        {/* Fixed Bottom Action Bar - Visible when a file is selected */}
+        {selectedFile && (
+          <div
+            className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 z-[1001] w-full shadow-2xl"
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+          >
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={onCancel}
+                className="px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium text-sm sm:text-base"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={processAndSaveAudio}
+                disabled={isProcessing || segment.duration > 10 || !selectedFile}
+                className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors min-h-[44px] sm:min-h-[48px] text-sm sm:text-base"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
+                    <span className="hidden sm:inline">Processing Audio...</span>
+                    <span className="sm:hidden">Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">Save Custom Sound</span>
+                    <span className="sm:hidden">Save Sound</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Button status info */}
+            {segment.duration > 10 && (
+              <div className="mt-2 text-sm text-amber-600 dark:text-amber-400 text-center max-w-md mx-auto">
+                Adjust segment to 10 seconds or less to save
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Hidden elements */}
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => setIsPlaying(false)}
+          className="hidden"
+        />
+      )}
+
+      {/* File input (hidden) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
     </div>
   );
 };

@@ -32,6 +32,8 @@ const NotificationSoundSettings: React.FC<NotificationSoundSettingsProps> = ({ o
   const [taskSoundInfo, setTaskSoundInfo] = useState<SoundInfo | null>(null);
   const [isTestingTimer, setIsTestingTimer] = useState(false);
   const [isTestingTask, setIsTestingTask] = useState(false);
+  const [isPreviewingTimer, setIsPreviewingTimer] = useState(false);
+  const [isPreviewingTask, setIsPreviewingTask] = useState(false);
 
   useEffect(() => {
     loadSoundInfo();
@@ -45,30 +47,69 @@ const NotificationSoundSettings: React.FC<NotificationSoundSettingsProps> = ({ o
     setTaskSoundInfo(taskInfo);
   };
 
-  const handleTimerAudioSaved = (audioBlob: Blob, originalName: string, segment: any) => {
-    NotificationService.updateCustomSound('timer', audioBlob, originalName, segment)
-      .then(success => {
-        if (success) {
-          setShowTimerPicker(false);
-          loadSoundInfo();
-        }
-      });
+  const handleTimerAudioSaved = async (audioBlob: Blob, originalName: string, segment: any) => {
+    try {
+      // First save the audio file
+      const success = await CustomAudioService.saveCustomAudio('timer', audioBlob, originalName, segment);
+      
+      if (success) {
+        // Refresh notification channels to use the new custom sound
+        await NotificationService.refreshCustomChannels();
+        
+        setShowTimerPicker(false);
+        loadSoundInfo(); // Refresh UI
+      }
+    } catch (error) {
+      console.error('Error saving timer audio:', error);
+    }
   };
 
-  const handleTaskAudioSaved = (audioBlob: Blob, originalName: string, segment: any) => {
-    NotificationService.updateCustomSound('task', audioBlob, originalName, segment)
-      .then(success => {
-        if (success) {
-          setShowTaskPicker(false);
-          loadSoundInfo();
-        }
-      });
+  const handleTaskAudioSaved = async (audioBlob: Blob, originalName: string, segment: any) => {
+    try {
+      // First save the audio file  
+      const success = await CustomAudioService.saveCustomAudio('task', audioBlob, originalName, segment);
+      
+      if (success) {
+        // Refresh notification channels to use the new custom sound
+        await NotificationService.refreshCustomChannels();
+        
+        setShowTaskPicker(false);
+        loadSoundInfo(); // Refresh UI
+      }
+    } catch (error) {
+      console.error('Error saving task audio:', error);
+    }
   };
 
   const removeCustomSound = async (type: 'timer' | 'task') => {
     const success = await NotificationService.removeCustomSound(type);
+    
+    // Refresh channels after removing custom sound
+    if (success) {
+      await NotificationService.refreshCustomChannels();
+    }
     if (success) {
       loadSoundInfo();
+    }
+  };
+
+  const previewSound = async (type: 'timer' | 'task') => {
+    if (type === 'timer') {
+      setIsPreviewingTimer(true);
+    } else {
+      setIsPreviewingTask(true);
+    }
+
+    try {
+      await NotificationService.previewCustomSound(type);
+    } finally {
+      setTimeout(() => {
+        if (type === 'timer') {
+          setIsPreviewingTimer(false);
+        } else {
+          setIsPreviewingTask(false);
+        }
+      }, 1500);
     }
   };
 
@@ -197,6 +238,16 @@ const NotificationSoundSettings: React.FC<NotificationSoundSettingsProps> = ({ o
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => previewSound('timer')}
+                    disabled={isPreviewingTimer}
+                    className="flex items-center gap-1"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    {isPreviewingTimer ? 'Previewing...' : 'Preview'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => testNotification('timer')}
                     disabled={isTestingTimer}
                     className="flex items-center gap-1"
@@ -276,6 +327,16 @@ const NotificationSoundSettings: React.FC<NotificationSoundSettingsProps> = ({ o
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => previewSound('task')}
+                    disabled={isPreviewingTask}
+                    className="flex items-center gap-1"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    {isPreviewingTask ? 'Previewing...' : 'Preview'}
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"

@@ -42,24 +42,37 @@ class CustomAudioService {
       const filePath = `${this.AUDIO_DIR}/${fileName}`;
 
       if (Capacitor.isNativePlatform()) {
-        // Save to device storage
+        // Save to device storage for app use
         await Filesystem.writeFile({
           path: filePath,
           data: base64Data,
           directory: Directory.Data
         });
 
-        // Copy to app's public assets directory for notification access
+        // For mobile notifications, we need to copy to the app's public assets
+        // This requires writing to a location accessible by the notification system
         try {
-          const publicSoundsPath = `sounds/${fileName}`;
+          // Save to External Documents for notification system access
           await Filesystem.writeFile({
-            path: publicSoundsPath,
+            path: `sounds/${fileName}`,
             data: base64Data,
             directory: Directory.Documents
           });
-          console.log(`Custom audio copied to notification-accessible location: ${publicSoundsPath}`);
-        } catch (copyError) {
-          console.warn('Could not copy to public sounds directory, notifications may use default sound:', copyError);
+          console.log(`Custom audio saved for notifications: sounds/${fileName}`);
+        } catch (error) {
+          console.warn('Could not save to notification-accessible directory:', error);
+          
+          // Fallback: save to cache for app-level playback
+          try {
+            await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache
+            });
+            console.log(`Custom audio saved to cache: ${fileName}`);
+          } catch (cacheError) {
+            console.warn('Could not save to cache directory:', cacheError);
+          }
         }
       } else {
         // For web, store in localStorage as base64
@@ -80,10 +93,8 @@ class CustomAudioService {
       localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Sound`, fileName);
       localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}SoundName`, originalName);
       
-      // For notifications, we need to reference the sound file without path
-      // The notification system will look in the app's sounds directory
-      const soundForNotification = fileName.replace(/^.*[\/]/, ''); // Remove path, keep just filename
-      localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}SoundFile`, soundForNotification);
+      // For notifications, store the filename for direct access
+      localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}SoundFile`, fileName);
 
       console.log(`Custom ${type} audio saved: ${fileName}`);
       return true;
@@ -155,8 +166,9 @@ class CustomAudioService {
           directory: Directory.Data,
           path: filePath
         });
-        
-        return fileUri.uri;
+        // Convert native file URI to a WebView-accessible URL (required on Android)
+        const webviewUrl = Capacitor.convertFileSrc(fileUri.uri);
+        return webviewUrl;
       } else {
         // For web, get from localStorage
         const base64Data = localStorage.getItem(`customAudio_${type}`);

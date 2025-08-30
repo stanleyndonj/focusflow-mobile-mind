@@ -291,7 +291,8 @@ class VisionStorageService {
       id: vision.id,
       title: vision.title,
       journalEntries: vision.journalEntries?.length || 0,
-      milestones: vision.milestones?.length || 0
+      milestones: vision.milestones?.length || 0,
+      mediaItems: vision.media || []
     });
     
     const visions = await this.loadVisions();
@@ -301,6 +302,7 @@ class VisionStorageService {
       ...vision,
       journalEntries: vision.journalEntries || [], // Ensure journal entries are preserved
       milestones: vision.milestones || [], // Ensure milestones are preserved
+      media: vision.media || [], // Ensure media items are preserved
       updatedAt: new Date().toISOString()
     };
     

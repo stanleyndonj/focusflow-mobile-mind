@@ -26,6 +26,12 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
+// Utility function to get MIME type from data URL
+const getMimeTypeFromDataUrl = (dataUrl: string): string => {
+  const matches = dataUrl.match(/^data:([^;]+);/);
+  return matches ? matches[1] : 'application/octet-stream';
+};
+
 interface VisionEntryDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -675,7 +681,9 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
         createdAt: new Date().toISOString(),
       };
       
-      setMediaItems([...mediaItems, newMediaItem]);
+      const updatedMediaItems = [...mediaItems, newMediaItem];
+      setMediaItems(updatedMediaItems);
+      console.log(`📷 Added ${mediaType} to vision. Total media items:`, updatedMediaItems.length);
     } catch (error) {
       console.error(`Error processing ${mediaType}:`, error);
       toast({
@@ -901,6 +909,8 @@ const VisionEntryDialog: React.FC<VisionEntryDialogProps> = ({ isOpen, onClose, 
         mediaItems,
         linkedTaskIds,
       };
+      
+      console.log('Saving vision with mediaItems:', mediaItems);
       
       if (editEntry) {
         await updateEntry(entryData as VisionBoardEntry);

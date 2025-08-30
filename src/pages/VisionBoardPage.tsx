@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import MobileLayout from '@/components/layout/MobileLayout';
 import { useVisionBoard, Vision } from '@/contexts/VisionBoardContext';
-import { AlertCircle, BookOpen, Calendar, Check, Clock, Edit, Eye, Grid3x3, Heart, Link2, List, Loader2, MoreVertical, Palette, Pencil, Plus, Sparkles, Star, Target, Trash, Trophy, Upload, X, Edit3, Trash2, Filter, CheckCircle, Archive } from 'lucide-react';
+import { AlertCircle, BookOpen, Calendar, Check, Clock, Edit, Eye, Grid3x3, Heart, Link2, List, Loader2, MoreVertical, Palette, Pencil, Plus, Sparkles, Star, Target, Trash, Trophy, Upload, X, Edit3, Trash2, Filter, CheckCircle, Archive, Play, Pause, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +24,8 @@ import VisionBacklinks from '@/components/vision/VisionBacklinks';
 import VisionCelebration from '@/components/vision/VisionCelebration';
 import { useTasks } from '@/contexts/TaskContext';
 import { format, parseISO, isValid } from 'date-fns';
+import { useTimer } from '@/contexts/TimerContext';
+import { formatTimeDisplay } from '@/services/TimerService';
 
 const VisionBoardPage: React.FC = () => {
   const { 
@@ -38,6 +40,7 @@ const VisionBoardPage: React.FC = () => {
     getActiveVisions
   } = useVisionBoard();
   const { state: taskState } = useTasks();
+  const { state: timerState, startTimer, pauseTimer, resetTimer } = useTimer();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingVision, setEditingVision] = useState<Vision | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -54,6 +57,7 @@ const VisionBoardPage: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'completed' | 'in-progress'>('all');
   const [completionDate, setCompletionDate] = useState('');
   const [reflectionNote, setReflectionNote] = useState('');
+  const [activeTimerTileId, setActiveTimerTileId] = useState<string | null>(null);
 
   // Memoized visions for performance
   const activeVisions = useMemo(() => {
@@ -315,32 +319,104 @@ const VisionBoardPage: React.FC = () => {
                                 ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-800' 
                                 : 'bg-white dark:bg-[#2C2C2C] border-gray-200 dark:border-gray-600'
                             }`}
-                            onClick={() => handleEntryClick(entry)}
+                            onClick={() => {
+                              const show = activeTimerTileId !== entry.id;
+                              setActiveTimerTileId(show ? entry.id : null);
+                              console.log('🕒 Vision tile click toggled timer overlay', { visionId: entry.id, showTimer: show });
+                            }}
                           >
                             {/* Enhanced Image Section with Progress-Linked Updates */}
-                            {entry.imageUrl && (
-                              <div className="relative h-48 overflow-hidden">
-                                <ProgressLinkedImage
-                                  imageUrl={entry.imageUrl}
-                                  progress={entry.progressPercentage || 0}
-                                  title={entry.title}
-                                  className="w-full h-full"
-                                  showOverlay={true}
-                                />
-                                
-                                {/* Completion Badge */}
-                                {entry.completed && (
-                                  <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-2 shadow-lg">
-                                    <Check size={16} />
+                            <div className="relative h-48 overflow-hidden">
+                              {activeTimerTileId === entry.id ? (
+                                <motion.div 
+                                  key={`timer-${entry.id}`}
+                                  className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black/70 to-black/50"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                >
+                                  <div className="text-center px-4">
+                                    <div className="text-white text-3xl font-bold tracking-wide">
+                                      {formatTimeDisplay(timerState.timeLeft * 1000)}
+                                    </div>
+                                    <div className="text-xs text-white/80 mt-1 capitalize">
+                                      {timerState.mode}
+                                    </div>
+                                    <div className="flex items-center justify-center gap-2 mt-3">
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 w-8 p-0 rounded-full bg-white/20 hover:bg-white/30 text-white"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (timerState.isRunning) {
+                                            console.log('⏸ Pausing timer from vision tile', { visionId: entry.id });
+                                            pauseTimer();
+                                          } else {
+                                            console.log('▶️ Starting timer from vision tile', { visionId: entry.id, task: entry.title });
+                                            startTimer(undefined, entry.title, entry.id);
+                                          }
+                                        }}
+                                      >
+                                        {timerState.isRunning ? <Pause size={16} /> : <Play size={16} />}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 w-8 p-0 rounded-full bg-white/20 hover:bg-white/30 text-white"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log('🔄 Resetting timer from vision tile', { visionId: entry.id });
+                                          resetTimer();
+                                        }}
+                                      >
+                                        <RotateCcw size={16} />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 w-8 p-0 rounded-full bg-white/20 hover:bg-white/30 text-white"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveTimerTileId(null);
+                                          console.log('🧩 Hiding timer overlay for vision', { visionId: entry.id });
+                                        }}
+                                      >
+                                        <X size={16} />
+                                      </Button>
+                                    </div>
                                   </div>
-                                )}
-                                {isVisionOverdue && isVisionOverdue(entry) && (
-                                  <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                                    Overdue
+                                </motion.div>
+                              ) : (
+                                <>
+                                  {(entry.media && entry.media.length > 0) ? (
+                                    <ProgressLinkedImage
+                                      imageUrl={entry.media[0]?.path}
+                                      progress={entry.progressPercentage || 0}
+                                      title={entry.title}
+                                      className="w-full h-full"
+                                      showOverlay={true}
+                                    />
+                                  ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                    <Target className="h-12 w-12 text-white/80" />
                                   </div>
-                                )}
-                              </div>
-                            )}
+                                  )}
+                                </>
+                              )}
+
+                              {/* Completion Badge */}
+                              {entry.status === 'completed' && (
+                                <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-2 shadow-lg">
+                                  <Check size={16} />
+                                </div>
+                              )}
+                              {isVisionOverdue && isVisionOverdue(entry) && (
+                                <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                                  Overdue
+                                </div>
+                              )}
+                            </div>
                                   
                                   {/* Enhanced Content Section */}
                                   <div className="p-6 space-y-4">
@@ -710,9 +786,9 @@ const VisionBoardPage: React.FC = () => {
               <div className="flex flex-col h-full">
                 {/* Enhanced Image Header */}
                 <div className="relative h-56 sm:h-64 md:h-72 overflow-hidden rounded-t-2xl">
-                  {selectedVision.imageUrl ? (
+                  {selectedVision.media && selectedVision.media.length > 0 ? (
                     <img
-                      src={selectedVision.imageUrl}
+                      src={selectedVision.media[0].path}
                       alt={selectedVision.title}
                       className="w-full h-full object-cover"
                     />
@@ -775,13 +851,13 @@ const VisionBoardPage: React.FC = () => {
                         <div key={media.id} className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
                           {media.type === 'audio' && (
                             <audio controls className="w-full">
-                              <source src={media.url} type="audio/mpeg" />
+                              <source src={media.path} type="audio/mpeg" />
                               Your browser does not support the audio element.
                             </audio>
                           )}
                           {media.type === 'video' && (
                             <video controls className="w-full rounded-lg">
-                              <source src={media.url} type="video/mp4" />
+                              <source src={media.path} type="video/mp4" />
                               Your browser does not support the video element.
                             </video>
                           )}
