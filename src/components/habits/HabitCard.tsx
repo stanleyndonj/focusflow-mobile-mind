@@ -29,19 +29,27 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   const [breakMood, setBreakMood] = useState('');
   const [preventionPlan, setPreventionPlan] = useState('');
   
-  const todayValue = habit.logs[today] || 0;
-  const isCompleted = todayValue > 0;
+  const rawTodayValue = habit.logs[today];
+  const hasLogToday = rawTodayValue !== undefined;
+  const todayValue = (typeof rawTodayValue === 'number' ? rawTodayValue : 0);
+  const isCompleted = habit.type === 'good' 
+    ? todayValue > 0 
+    : (hasLogToday && todayValue === 0);
   const percentage = habit.target.times 
-    ? (todayValue / habit.target.times) * 100
+    ? (todayValue / (habit.target.times || 1)) * 100
     : habit.target.minutes
-    ? (todayValue / habit.target.minutes) * 100  
+    ? (todayValue / (habit.target.minutes || 1)) * 100  
     : isCompleted ? 100 : 0;
 
   // For bad habits, calculate avoided streak
-  const avoidedToday = habit.type === 'bad' && !isCompleted;
+  const avoidedToday = habit.type === 'bad' && isCompleted;
   const currentAvoidedStreak = habit.avoidedStreak || 0;
 
   const progressPercentage = React.useMemo(() => {
+    if (habit.type === 'bad') {
+      // For bad habits, progress is 100% when avoided (0 or undefined), else 0%
+      return isCompleted ? 100 : 0;
+    }
     if (habit.trackMode === 'binary') {
       return isCompleted ? 100 : 0;
     }
@@ -58,7 +66,13 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     e.stopPropagation();
     
     if (habit.trackMode === 'binary') {
-      onQuickLog(habit.id, !hasLoggedToday || !isCompleted);
+      if (habit.type === 'good') {
+        onQuickLog(habit.id, !isCompleted);
+      } else {
+        // bad habit: toggle between avoided (0) and broken (1)
+        const next = rawTodayValue === undefined || todayValue === 0 ? 1 : 0;
+        onQuickLog(habit.id, next);
+      }
     } else if (habit.trackMode === 'count') {
       const newValue = (todayValue || 0) + 1;
       onQuickLog(habit.id, newValue);
@@ -109,13 +123,13 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           {habit.type === 'good' ? (
             <Check size={20} className={isCompleted ? 'text-green-600 dark:text-green-400' : ''} />
           ) : (
-            <X size={20} className={!hasLoggedToday || todayValue === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'} />
+            <X size={20} className={isCompleted ? 'text-green-600 dark:text-green-400' : 'text-red-500'} />
           )}
         </button>
       </div>
 
       {/* Progress Bar */}
-      {habit.trackMode !== 'binary' && (
+      {(habit.trackMode !== 'binary' || habit.type === 'bad') && (
         <div className="mb-3">
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div 

@@ -32,22 +32,21 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
   const currentVision = state.visions.find(v => v.id === visionId);
   console.log('🎯 MilestoneTiles: Current vision milestones:', currentVision?.milestones?.length || 0);
   
-  // CORRECT LOGIC: Only show visions that THIS vision has linked as milestones (parent → child)
-  // This vision's milestones array contains the visions it has linked as children
+  // Combine legacy checklist milestones stored on the vision and v2 milestones in the store
   const visionMilestones = currentVision?.milestones || [];
   const legacyMilestones = getMilestonesForVision ? getMilestonesForVision(visionId) : [];
   const allMilestones = [...visionMilestones, ...legacyMilestones];
-  
+
+  // Checklist-style milestones (legacy or v2 with type 'checklist')
   const checklistMilestones = allMilestones.filter(m => !(m as any).type || (m as any).type === 'checklist');
-  
-  // FIXED: Only show visions that are in THIS vision's milestones array (child visions)
-  // These are visions that this parent vision has linked as milestones
-  const linkedVisionMilestones = visionMilestones.filter(m => {
-    // Each milestone in the array should be a vision that was linked as a child
-    return m.id && state.visions.some(v => v.id === m.id);
-  });
-  
-  console.log('👨‍👩‍👧‍👦 Parent vision', visionId, 'has', linkedVisionMilestones.length, 'child visions as milestones');
+
+  // Linked-vision milestones (v2 records with type 'vision_link') joined with actual vision objects
+  const linkedVisionRecords = legacyMilestones.filter((m: any) => (m as any).type === 'vision_link');
+  const linkedVisionPairs = linkedVisionRecords
+    .map((m: any) => ({ milestone: m as VisionMilestone, vision: state.visions.find(v => v.id === (m as any).linkedVisionId) }))
+    .filter(pair => !!pair.vision) as Array<{ milestone: VisionMilestone; vision: Vision }>;
+
+  console.log('👨‍👩‍👧‍👦 Parent vision', visionId, 'has', linkedVisionPairs.length, 'child visions as milestones');
 
   const handleToggleComplete = async (milestoneId: string) => {
     await toggleMilestoneCompletion(milestoneId);
@@ -162,21 +161,21 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
       )}
 
       {/* Linked Vision Milestones */}
-      {linkedVisionMilestones.length > 0 && (
+      {linkedVisionPairs.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-md font-medium text-gray-800 dark:text-gray-200 flex items-center gap-2">
             <Target className="h-4 w-4" />
-            Linked Visions ({linkedVisionMilestones.length})
+            Linked Visions ({linkedVisionPairs.length})
           </h4>
           
           <div className="space-y-2">
             <AnimatePresence>
-              {linkedVisionMilestones.map((linkedVision) => {
-                const isCompleted = linkedVision.status === 'completed';
+              {linkedVisionPairs.map(({ milestone, vision }) => {
+                const isCompleted = vision.status === 'completed';
 
                 return (
                   <motion.div
-                    key={linkedVision.id}
+                    key={milestone.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, x: -20 }}
@@ -189,10 +188,10 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
                         <div className="flex items-start gap-3">
                           {/* Vision Thumbnail */}
                           <div className="flex-shrink-0">
-                            {linkedVision.media?.[0]?.path ? (
+                            {vision.media?.[0]?.path ? (
                               <img
-                                src={linkedVision.media[0].path}
-                                alt={linkedVision.title}
+                                src={vision.media[0].path}
+                                alt={vision.title}
                                 className="w-12 h-12 rounded-lg object-cover"
                               />
                             ) : (
@@ -207,10 +206,10 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
                             <div className="flex items-start justify-between">
                               <div>
                                 <h5 className="font-semibold text-gray-900 dark:text-gray-100">
-                                  {linkedVision.title}
+                                  {vision.title}
                                 </h5>
                                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {linkedVision.description}
+                                  {vision.description}
                                 </p>
                               </div>
 
@@ -225,16 +224,15 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
                                   <DropdownMenuItem onClick={() => {
                                     // Navigate to the linked vision by updating the selected vision
                                     // Navigate to linked vision
-                                    console.log('🔗 Opening linked vision:', linkedVision.id);
+                                    console.log('🔗 Opening linked vision:', vision.id);
                                   }}>
                                     <ExternalLink className="h-4 w-4 mr-2" />
                                     Open Vision
                                   </DropdownMenuItem>
                                   <DropdownMenuItem 
                                     onClick={() => {
-                                      // Remove from current vision's milestones array
-                                      console.log('🗑️ Unlinking vision milestone:', linkedVision.id);
-                                      // This needs to be implemented in context
+                                      console.log('🗑️ Unlinking vision milestone:', vision.id);
+                                      handleUnlink(milestone.id);
                                     }}
                                     className="text-red-600 hover:text-red-700"
                                   >
@@ -258,16 +256,16 @@ const MilestoneTiles: React.FC<MilestoneTilesProps> = ({
                                 </Badge>
                               )}
                               
-                              {linkedVision.targetDate && (
+                              {vision.targetDate && (
                                 <div className="flex items-center gap-1 text-xs text-gray-500">
                                   <Calendar className="h-3 w-3" />
-                                  <span>{formatDate(linkedVision.targetDate)}</span>
+                                  <span>{formatDate(vision.targetDate)}</span>
                                 </div>
                               )}
                               
-                              {typeof linkedVision.progressPercentage === 'number' && (
+                              {typeof vision.progressPercentage === 'number' && (
                                 <div className="text-xs text-gray-500">
-                                  {linkedVision.progressPercentage}% complete
+                                  {vision.progressPercentage}% complete
                                 </div>
                               )}
                             </div>

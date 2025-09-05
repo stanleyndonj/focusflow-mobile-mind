@@ -96,7 +96,7 @@ export const AddEditHabitModal: React.FC<Props> = ({ isOpen, onClose, onSave, ha
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-[150] grid place-items-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -136,7 +136,7 @@ export const AddEditHabitModal: React.FC<Props> = ({ isOpen, onClose, onSave, ha
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[60vh]">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[70vh]">
             {/* Habit Name */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">

@@ -16,13 +16,20 @@ export const HabitCardEnhanced: React.FC<HabitCardEnhancedProps> = ({ habit, onQ
   const [breakTrigger, setBreakTrigger] = useState('');
   const [breakMood, setBreakMood] = useState('');
   
-  const todayValue = habit.logs[today] || 0;
-  const isCompleted = todayValue > 0;
-  const percentage = habit.target.times ? (todayValue / habit.target.times) * 100
-    : habit.target.minutes ? (todayValue / habit.target.minutes) * 100 : isCompleted ? 100 : 0;
+  const rawTodayValue = habit.logs[today];
+  const hasLogToday = rawTodayValue !== undefined;
+  const todayValue = (typeof rawTodayValue === 'number' ? rawTodayValue : 0);
+  const isGood = habit.type === 'good';
+  const isAvoided = !isGood && hasLogToday && todayValue === 0;
+  const isCompleted = isGood ? todayValue > 0 : isAvoided; // normalize for UI
+  const percentage = isGood
+    ? (habit.target.times ? (todayValue / (habit.target.times || 1)) * 100
+      : habit.target.minutes ? (todayValue / (habit.target.minutes || 1)) * 100
+      : isCompleted ? 100 : 0)
+    : (isAvoided ? 100 : 0);
 
-  const avoidedToday = habit.type === 'bad' && !isCompleted;
-  const currentStreak = habit.type === 'bad' ? (habit.avoidedStreak || 0) : habit.stats.currentStreak;
+  const avoidedToday = !isGood && isAvoided;
+  const currentStreak = !isGood ? (habit.avoidedStreak || 0) : habit.stats.currentStreak;
 
   const handleBreakBadHabit = () => {
     const now = new Date();

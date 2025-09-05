@@ -17,6 +17,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useNotification } from '../contexts/NotificationContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useHabitNotifications } from '../hooks/useHabitNotifications';
 
 const SettingsPage: React.FC = () => {
   // Would integrate with device notification system in a real mobile app
@@ -46,6 +47,15 @@ const SettingsPage: React.FC = () => {
   const { state: procrastinationState } = useProcrastination();
   const { requestPermissions } = useNotification();
   const { theme, setTheme } = useTheme();
+  
+  // Habit notification settings
+  const {
+    settings: habitNotificationSettings,
+    isLoading: habitNotificationsLoading,
+    updateSettings: updateHabitNotificationSettings,
+    testNotification: testHabitNotification,
+    requestPermissions: requestHabitPermissions
+  } = useHabitNotifications();
   
   useEffect(() => {
     // Request notification permissions on page load
@@ -318,6 +328,156 @@ const SettingsPage: React.FC = () => {
                       >
                         🚨 Test Urgent Notification
                       </Button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label htmlFor="habitReminders" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Daily habit reminders
+                      </label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Get reminded to log your habits with vibration and custom sounds
+                      </p>
+                    </div>
+                    <Switch
+                      id="habitReminders"
+                      checked={habitNotificationSettings.enabled}
+                      onCheckedChange={async (checked) => {
+                        try {
+                          if (checked) {
+                            const hasPermission = await requestHabitPermissions();
+                            if (!hasPermission) {
+                              toast({
+                                title: "Permission Required",
+                                description: "Please enable notifications in your device settings.",
+                                variant: "destructive"
+                              });
+                              return;
+                            }
+                          }
+                          await updateHabitNotificationSettings({ enabled: checked });
+                          toast({
+                            title: checked ? "Habit Reminders Enabled" : "Habit Reminders Disabled",
+                            description: checked 
+                              ? `Daily reminders set for ${habitNotificationSettings.dailyReminderTime}`
+                              : "You won't receive habit reminder notifications"
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Error",
+                            description: "Failed to update habit notification settings",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      disabled={habitNotificationsLoading}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                  </div>
+                  
+                  {habitNotificationSettings.enabled && (
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-600 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="habitReminderTime" className="text-sm text-gray-700 dark:text-gray-300">
+                          Reminder Time
+                        </label>
+                        <input
+                          id="habitReminderTime"
+                          type="time"
+                          value={habitNotificationSettings.dailyReminderTime}
+                          onChange={async (e) => {
+                            try {
+                              await updateHabitNotificationSettings({ dailyReminderTime: e.target.value });
+                              toast({
+                                title: "Reminder Time Updated",
+                                description: `Habit reminders will be sent at ${e.target.value}`
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to update reminder time",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="habitVibration" className="text-sm text-gray-700 dark:text-gray-300">
+                          Vibration
+                        </label>
+                        <Switch
+                          id="habitVibration"
+                          checked={habitNotificationSettings.vibrationEnabled}
+                          onCheckedChange={async (checked) => {
+                            try {
+                              await updateHabitNotificationSettings({ vibrationEnabled: checked });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to update vibration setting",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          disabled={habitNotificationsLoading}
+                          size="sm"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="habitSound" className="text-sm text-gray-700 dark:text-gray-300">
+                          Sound
+                        </label>
+                        <Switch
+                          id="habitSound"
+                          checked={habitNotificationSettings.soundEnabled}
+                          onCheckedChange={async (checked) => {
+                            try {
+                              await updateHabitNotificationSettings({ soundEnabled: checked });
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: "Failed to update sound setting",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          disabled={habitNotificationsLoading}
+                          size="sm"
+                        />
+                      </div>
+                      
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await testHabitNotification();
+                              toast({
+                                title: "Test Notification Sent",
+                                description: "Check your notifications in a few seconds!"
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Test Failed",
+                                description: "Could not send test notification. Check your permissions.",
+                                variant: "destructive"
+                              });
+                            }
+                          }}
+                          disabled={habitNotificationsLoading}
+                          className="flex-1 text-green-600 border-green-200 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/20"
+                        >
+                          🧪 Test Habit Reminder
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>

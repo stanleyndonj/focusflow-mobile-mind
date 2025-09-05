@@ -92,80 +92,80 @@ export const HabitDetail = memo<HabitDetailProps>(({
     : currentValue === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/50 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-white dark:bg-gray-800 rounded-xl shadow-xl my-8 flex flex-col min-h-0">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 overflow-y-auto">
+      <div className="w-full max-w-2xl mx-4 bg-white dark:bg-gray-800 rounded-xl shadow-xl flex flex-col max-h-[90vh] min-h-[60vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <div 
-              className="w-3 h-8 rounded-full"
+              className="w-3 h-6 sm:h-8 rounded-full shrink-0"
               style={{ backgroundColor: habit.settings?.color || '#10b981' }}
             />
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
                 {habit.title}
               </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">
+              <div className="flex items-center gap-1 sm:gap-2 mt-1">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 whitespace-nowrap">
                   {habit.type === 'good' ? '✅ Good' : '❌ Bad'}
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 whitespace-nowrap">
                   {habit.trackMode}
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 shrink-0 ml-2">
             <button
               onClick={() => onEdit(habit)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation"
             >
-              <Edit size={18} className="text-gray-600 dark:text-gray-400" />
+              <Edit size={16} className="text-gray-600 dark:text-gray-400" />
             </button>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation"
             >
-              <Trash size={18} className="text-red-500" />
+              <Trash size={16} className="text-red-500" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 touch-manipulation"
             >
-              <X size={18} className="text-gray-600 dark:text-gray-400" />
+              <X size={16} className="text-gray-600 dark:text-gray-400" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[70vh]">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 pb-24">
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp size={14} className="text-green-500" />
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 sm:p-3">
+              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                <TrendingUp size={12} className="text-green-500" />
                 <span className="text-xs text-gray-600 dark:text-gray-400">Current</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {habit.stats.currentStreak}
               </div>
               <div className="text-xs text-gray-500">days</div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Target size={14} className="text-blue-500" />
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 sm:p-3">
+              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                <Target size={12} className="text-blue-500" />
                 <span className="text-xs text-gray-600 dark:text-gray-400">Best</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {habit.stats.bestStreak}
               </div>
               <div className="text-xs text-gray-500">days</div>
             </div>
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock size={14} className="text-purple-500" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">Consistency</span>
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-2 sm:p-3">
+              <div className="flex items-center gap-1 sm:gap-2 mb-1">
+                <Clock size={12} className="text-purple-500" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">Rate</span>
               </div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">
                 {completionRate}%
               </div>
               <div className="text-xs text-gray-500">overall</div>
@@ -173,8 +173,8 @@ export const HabitDetail = memo<HabitDetailProps>(({
           </div>
 
           {/* Date Selector & Logger */}
-          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 mb-3">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Log for Date
               </label>
@@ -183,8 +183,8 @@ export const HabitDetail = memo<HabitDetailProps>(({
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                  bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
+                  bg-white dark:bg-gray-700 text-gray-900 dark:text-white touch-manipulation"
               />
             </div>
 
@@ -212,7 +212,7 @@ export const HabitDetail = memo<HabitDetailProps>(({
             {habit.trackMode === 'binary' ? (
               <button
                 onClick={handleLog}
-                className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                className={`w-full py-3 sm:py-4 rounded-lg font-medium transition-colors touch-manipulation ${
                   hasValue && currentValue
                     ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300'
@@ -224,42 +224,42 @@ export const HabitDetail = memo<HabitDetailProps>(({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleQuickIncrement(-1)}
-                  className="p-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  className="p-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 touch-manipulation"
                 >
-                  <Minus size={20} />
+                  <Minus size={18} />
                 </button>
                 <button
                   onClick={() => handleQuickIncrement(1)}
-                  className="flex-1 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  className="flex-1 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium touch-manipulation"
                 >
                   Add 1
                 </button>
                 <button
                   onClick={() => handleQuickIncrement(5)}
-                  className="px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  className="px-3 sm:px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 touch-manipulation"
                 >
                   +5
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     value={inputValue}
                     onChange={(e) => setInputValue(parseInt(e.target.value) || 0)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="flex-1 px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
+                      bg-white dark:bg-gray-700 text-gray-900 dark:text-white touch-manipulation"
                     placeholder="Minutes..."
                   />
                   <button
                     onClick={handleLog}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                    className="px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium touch-manipulation"
                   >
                     Log
                   </button>
                 </div>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[15, 30, 60].map(min => (
                     <button
                       key={min}
@@ -267,7 +267,7 @@ export const HabitDetail = memo<HabitDetailProps>(({
                         setInputValue(min);
                         onLog(habit.id, selectedDate, min);
                       }}
-                      className="flex-1 py-2 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg"
+                      className="py-3 text-sm bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg touch-manipulation font-medium"
                     >
                       {min}m
                     </button>
@@ -360,23 +360,23 @@ export const HabitDetail = memo<HabitDetailProps>(({
         {/* Delete Confirmation */}
         {showDeleteConfirm && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 max-w-sm w-full mx-4">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
                 Delete Habit?
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 This will permanently delete "{habit.title}" and all its data.
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  className="flex-1 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 touch-manipulation font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg touch-manipulation font-medium"
                 >
                   Delete
                 </button>

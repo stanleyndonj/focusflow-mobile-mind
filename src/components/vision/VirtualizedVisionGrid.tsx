@@ -5,7 +5,7 @@ import { Vision } from '@/contexts/VisionBoardContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Target, Calendar, TrendingUp, Edit, Trash, MoreVertical } from 'lucide-react';
+import { Target, Calendar, TrendingUp, Edit, Trash, MoreVertical, CheckCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { motion } from 'framer-motion';
 import { format, parseISO, isValid } from 'date-fns';
@@ -110,7 +110,22 @@ const VisionCard = memo<VisionCardProps>(({ vision, onEdit, onDelete, onOpen }) 
             )}
             
             {/* Actions Menu */}
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 right-2 flex items-center gap-1">
+              {vision.status === 'active' && (
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="h-8 w-8 p-0 bg-white/10 hover:bg-white/20 backdrop-blur-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Trigger a custom event; parent page handles completion via context
+                    const event = new CustomEvent('vision:mark-complete', { detail: { id: vision.id } });
+                    window.dispatchEvent(event);
+                  }}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 

@@ -415,6 +415,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     try {
       localStorage.setItem('tasks', JSON.stringify(state.tasks));
+      // Notify listeners that tasks changed
+      window.dispatchEvent(new CustomEvent('tasks:updated', { detail: { tasks: state.tasks } }));
     } catch (error) {
       console.error('Failed to save tasks to localStorage:', error);
     }

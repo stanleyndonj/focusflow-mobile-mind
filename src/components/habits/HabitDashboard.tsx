@@ -54,6 +54,8 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
     return () => clearInterval(interval);
   }, [habits]);
 
+  // Notification scheduling is handled centrally in the notifications hook and settings page.
+
   const filteredAndSortedHabits = useMemo(() => {
     let filtered = habits;
     
@@ -89,19 +91,24 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
   };
 
   const todayProgress = useMemo(() => {
-    const goodHabits = habits.filter(h => h.type === 'good');
-    const completed = goodHabits.filter(h => {
+    const completed = habits.filter(h => {
       const value = h.logs[today];
-      if (h.trackMode === 'binary') return value === 1;
-      if (h.trackMode === 'count') return value >= (h.target.times || 0);
-      if (h.trackMode === 'duration') return value >= (h.target.minutes || 0);
-      return false;
+      const hasLogToday = value !== undefined;
+      if (h.type === 'good') {
+        if (h.trackMode === 'binary') return value === 1;
+        if (h.trackMode === 'count') return (value || 0) >= (h.target.times || 0);
+        if (h.trackMode === 'duration') return (value || 0) >= (h.target.minutes || 0);
+        return false;
+      } else {
+        // Bad habit: completed means explicitly avoided today (has log and is 0)
+        return hasLogToday && value === 0;
+      }
     });
-    
+    const total = habits.length;
     return {
       completed: completed.length,
-      total: goodHabits.length,
-      percentage: goodHabits.length > 0 ? Math.round((completed.length / goodHabits.length) * 100) : 0
+      total,
+      percentage: total > 0 ? Math.round((completed.length / total) * 100) : 0
     };
   }, [habits, today]);
 
@@ -408,7 +415,11 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({ className = '' }
           habit={detailHabit}
           isOpen={!!detailHabit}
           onClose={() => setDetailHabit(undefined)}
-          onEdit={setEditingHabit}
+          onEdit={(h) => {
+            // Close detail first, then open edit to avoid stacking behind
+            setDetailHabit(undefined);
+            setTimeout(() => setEditingHabit(h), 0);
+          }}
           onDelete={deleteHabit}
           onLog={logHabit}
         />

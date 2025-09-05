@@ -37,7 +37,8 @@ const VisionBoardPage: React.FC = () => {
     completeVision,
     isVisionOverdue,
     getCompletedVisions,
-    getActiveVisions
+    getActiveVisions,
+    linkVisionAsMilestone
   } = useVisionBoard();
   const { state: taskState } = useTasks();
   const { state: timerState, startTimer, pauseTimer, resetTimer } = useTimer();
@@ -529,6 +530,19 @@ const VisionBoardPage: React.FC = () => {
                                       
                                       {/* Action Buttons */}
                                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        {entry.status === 'active' && (
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 rounded-full hover:bg-green-100 text-gray-500 hover:text-green-600 transition-colors"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              await completeVision(entry.id, () => setCelebratingVision(entry as any));
+                                            }}
+                                          >
+                                            <CheckCircle size={14} />
+                                          </Button>
+                                        )}
                                         <Button 
                                           variant="ghost" 
                                           size="icon" 
@@ -898,48 +912,13 @@ const VisionBoardPage: React.FC = () => {
                     <div className="flex justify-center">
                       <VisionPicker
                         parentVisionId={selectedVision.id}
-                        onVisionSelected={(visionId, title) => {
-                          // Actually create the milestone link
-                          const parentVision = state.visions.find(v => v.id === selectedVision.id);
-                          const childVision = state.visions.find(v => v.id === visionId);
-                          
-                          if (parentVision && childVision) {
-                            // Add milestone to parent vision
-                            const updatedMilestones = [...(parentVision.milestones || [])];
-                            const newMilestone = {
-                              id: visionId,
-                              title: childVision.title,
-                              completed: childVision.progressPercentage >= 100
-                            };
-                            
-                            // Check if milestone already exists
-                            const exists = updatedMilestones.some(m => m.id === visionId);
-                            if (!exists) {
-                              updatedMilestones.push(newMilestone);
-                              
-                              const updatedParentVision = {
-                                ...parentVision,
-                                milestones: updatedMilestones
-                              };
-                              
-                              updateVision(updatedParentVision);
-                              
-                              // Update selectedVision to reflect changes immediately
-                              setSelectedVision(updatedParentVision);
-                              
-                              toast({
-                                title: "Milestone Added",
-                                description: `${title || 'Vision'} has been linked as a milestone.`,
-                              });
-                              
-                              console.log('✅ Milestone linked:', newMilestone);
-                            } else {
-                              toast({
-                                title: "Already Linked",
-                                description: `${title || 'Vision'} is already a milestone.`,
-                                variant: "destructive"
-                              });
-                            }
+                        onVisionSelected={async (visionId, title) => {
+                          try {
+                            await linkVisionAsMilestone(selectedVision.id, visionId, title);
+                            const refreshed = state.visions.find(v => v.id === selectedVision.id);
+                            if (refreshed) setSelectedVision(refreshed);
+                          } catch (e) {
+                            console.error('Failed to link vision as milestone', e);
                           }
                         }}
                       >

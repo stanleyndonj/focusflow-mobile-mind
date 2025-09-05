@@ -347,6 +347,32 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, []);
 
+  // Progress calculation (moved above to avoid TDZ issues in dependencies)
+  const getVisionById = useCallback((id: string): Vision | undefined => {
+    return state.visions.find(v => v.id === id);
+  }, [state.visions]);
+
+  const calculateVisionProgress = useCallback(async (visionId: string): Promise<number> => {
+    return await visionStorageService.calculateVisionProgress(visionId);
+  }, []);
+
+  const updateProgress = useCallback(async (visionId: string, percentage: number) => {
+    try {
+      const vision = getVisionById(visionId);
+      if (vision) {
+        const updatedVision: Vision = {
+          ...vision,
+          progressPercentage: percentage,
+          updatedAt: new Date().toISOString()
+        };
+        await updateVision(updatedVision);
+      }
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update progress' });
+    }
+  }, [getVisionById, updateVision]);
+
   const completeVision = useCallback(async (id: string, celebrationCallback?: () => void) => {
     try {
       const vision = state.visions.find(v => v.id === id);
@@ -359,7 +385,8 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
         status: 'completed',
         accomplishedAt: new Date().toISOString(),
         completedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        progressPercentage: 100
       };
       
       await visionStorageService.saveVision(completedVision);
@@ -378,6 +405,16 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
         const milestones = await visionStorageService.loadMilestones();
         dispatch({ type: 'LOAD_MILESTONES', payload: milestones });
         
+        // Recalculate and persist progress for each affected parent
+        for (const parentId of affectedParents) {
+          try {
+            const percentage = await calculateVisionProgress(parentId);
+            await updateProgress(parentId, percentage);
+          } catch (updateError) {
+            console.warn('Failed updating parent progress', { parentId, updateError });
+          }
+        }
+
         // Send notifications
         for (const parentId of affectedParents) {
           const parentVision = state.visions.find(v => v.id === parentId);
@@ -413,7 +450,7 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
       console.error('Error completing vision:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to complete vision' });
     }
-  }, [state.visions]);
+  }, [state.visions, calculateVisionProgress, updateProgress]);
 
   // 📅 Check for target date completions
   const checkTargetDateCompletions = useCallback(async () => {
@@ -447,9 +484,7 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [state.visions]);
 
-  const getVisionById = useCallback((id: string): Vision | undefined => {
-    return state.visions.find(v => v.id === id);
-  }, [state.visions]);
+  
 
   const getRandomVision = useCallback((): Vision | null => {
     if (state.visions.length === 0) return null;
@@ -489,6 +524,14 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
         description: "New milestone has been added to your vision."
       });
       
+      // Recompute progress for the parent vision after adding a milestone
+      try {
+        const percentage = await calculateVisionProgress(newMilestone.parentVisionId);
+        await updateProgress(newMilestone.parentVisionId, percentage);
+      } catch (recalcError) {
+        console.warn('Failed to recalc progress after addMilestone', recalcError);
+      }
+      
     } catch (error) {
       console.error('Error adding milestone:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to add milestone' });
@@ -507,6 +550,7 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   const deleteMilestone = useCallback(async (id: string) => {
     try {
+      const milestone = state.milestones.find(m => m.id === id);
       await visionStorageService.deleteMilestone(id);
       dispatch({ type: 'DELETE_MILESTONE', payload: id });
       
@@ -515,11 +559,21 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
         description: "The milestone has been removed from your vision."
       });
       
+      // Recompute progress for the parent vision after deleting a milestone
+      if (milestone) {
+        try {
+          const percentage = await calculateVisionProgress(milestone.parentVisionId);
+          await updateProgress(milestone.parentVisionId, percentage);
+        } catch (recalcError) {
+          console.warn('Failed to recalc progress after deleteMilestone', recalcError);
+        }
+      }
+      
     } catch (error) {
       console.error('Error deleting milestone:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete milestone' });
     }
-  }, []);
+  }, [state.milestones]);
 
   const toggleMilestoneCompletion = useCallback(async (id: string) => {
     try {
@@ -532,12 +586,20 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
       };
       
       await updateMilestone(updatedMilestone);
+
+      // After toggling, recalculate parent vision progress
+      try {
+        const percentage = await calculateVisionProgress(updatedMilestone.parentVisionId);
+        await updateProgress(updatedMilestone.parentVisionId, percentage);
+      } catch (progressError) {
+        console.warn('Failed to recalc parent progress after milestone toggle', { id, progressError });
+      }
       
     } catch (error) {
       console.error('Error toggling milestone completion:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update milestone' });
     }
-  }, [state.milestones, updateMilestone]);
+  }, [state.milestones, updateMilestone, calculateVisionProgress, updateProgress]);
 
   const getMilestonesForVision = useCallback((visionId: string): VisionMilestone[] => {
     return state.milestones.filter(m => m.parentVisionId === visionId).sort((a, b) => a.orderIndex - b.orderIndex);
@@ -586,27 +648,41 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
     return await visionStorageService.checkForCycles(parentVisionId, linkedVisionId);
   }, []);
 
-  // Progress calculation
-  const calculateVisionProgress = useCallback(async (visionId: string): Promise<number> => {
-    return await visionStorageService.calculateVisionProgress(visionId);
-  }, []);
-
-  const updateProgress = useCallback(async (visionId: string, percentage: number) => {
-    try {
-      const vision = getVisionById(visionId);
-      if (vision) {
-        const updatedVision: Vision = {
-          ...vision,
-          progressPercentage: percentage,
-          updatedAt: new Date().toISOString()
-        };
-        await updateVision(updatedVision);
+  // After initial load, recompute progress once to include tasks and milestones
+  useEffect(() => {
+    const recomputeAllProgress = async () => {
+      try {
+        for (const v of state.visions) {
+          const target = v.status === 'completed' ? 100 : await calculateVisionProgress(v.id);
+          if ((v.progressPercentage || 0) !== target) {
+            await updateProgress(v.id, target);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to recompute all vision progress', e);
       }
-    } catch (error) {
-      console.error('Error updating progress:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to update progress' });
+    };
+    if (!state.loading && !state.migrating && state.visions.length >= 0) {
+      void recomputeAllProgress();
     }
-  }, [getVisionById, updateVision]);
+  }, [state.loading, state.migrating, state.visions.length, calculateVisionProgress, updateProgress]);
+
+  // React to task updates to recompute weighted progress (tasks influence progress)
+  useEffect(() => {
+    const onTasksUpdated = async () => {
+      try {
+        for (const v of state.visions) {
+          if (v.status === 'completed') continue;
+          const percentage = await calculateVisionProgress(v.id);
+          await updateProgress(v.id, percentage);
+        }
+      } catch (e) {
+        console.warn('Failed to recompute progress on tasks update', e);
+      }
+    };
+    window.addEventListener('tasks:updated', onTasksUpdated as any);
+    return () => window.removeEventListener('tasks:updated', onTasksUpdated as any);
+  }, [state.visions, calculateVisionProgress, updateProgress]);
 
   // Legacy compatibility functions
   const addEntry = useCallback((entry: Omit<VisionBoardEntry, 'id' | 'createdAt'>) => {

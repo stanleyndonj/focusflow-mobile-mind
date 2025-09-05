@@ -19,7 +19,7 @@ import EnhancedVisionDetailsDialog from '@/components/vision/EnhancedVisionDetai
 import { useTasks } from '@/contexts/TaskContext';
 
 const VisionBoardPage: React.FC = () => {
-  const { state, deleteVision, updateVision } = useVisionBoard();
+  const { state, deleteVision, updateVision, completeVision } = useVisionBoard();
   const { state: taskState } = useTasks();
   
   // State management
@@ -276,6 +276,18 @@ const VisionBoardPage: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Mark complete from virtualized grid via global event */}
+        <div className="hidden" aria-hidden>
+          {React.useEffect(() => {
+            const handler = (e: any) => {
+              const id = e?.detail?.id;
+              if (id) completeVision(id);
+            };
+            window.addEventListener('vision:mark-complete', handler as any);
+            return () => window.removeEventListener('vision:mark-complete', handler as any);
+          }, [])}
         </div>
 
         {/* Modals and Dialogs */}
