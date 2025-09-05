@@ -686,15 +686,21 @@ export const VisionBoardProvider: React.FC<{ children: ReactNode }> = ({ childre
 
   // Legacy compatibility functions
   const addEntry = useCallback((entry: Omit<VisionBoardEntry, 'id' | 'createdAt'>) => {
-    const visionData = {
-      title: entry.title,
-      description: entry.description,
-      media: entry.mediaItems || (entry.imageUrl ? [{
+    // Ensure main image persists on create even if mediaItems is an empty array
+    let media = entry.mediaItems && entry.mediaItems.length > 0 ? entry.mediaItems : [];
+    if (media.length === 0 && entry.imageUrl) {
+      media = [{
         id: `media-${Date.now()}`,
         type: 'image' as const,
         path: entry.imageUrl,
         createdAt: new Date().toISOString()
-      }] : []),
+      }];
+    }
+
+    const visionData = {
+      title: entry.title,
+      description: entry.description,
+      media,
       category: entry.category,
       linkedTaskIds: entry.linkedTaskIds,
       importance: entry.importance,
