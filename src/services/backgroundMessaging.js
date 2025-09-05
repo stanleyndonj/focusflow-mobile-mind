@@ -1,6 +1,6 @@
 // React Native Firebase background message handler that displays notifications via Notifee
 import messaging from '@react-native-firebase/messaging';
-import NotificationService from './NotificationService';
+import NotificationService from './NotificationService.rn';
 import analytics from '@react-native-firebase/analytics';
 
 messaging().setBackgroundMessageHandler(async remoteMessage => {
