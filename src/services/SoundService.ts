@@ -2,7 +2,7 @@
 import { Howl } from 'howler';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/components/ui/use-toast';
-import NotificationService from './NotificationService';
+import NotificationService from './NotificationService.ts';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 
 class SoundService {

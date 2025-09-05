@@ -12,7 +12,7 @@ import { useTimer } from '@/contexts/TimerContext';
 import { useTasks } from '@/contexts/TaskContext';
 import { useProcrastination } from '@/contexts/ProcrastinationContext';
 import { toast } from '@/components/ui/use-toast';
-import NotificationService from '@/services/NotificationService';
+import NotificationService from '@/services/NotificationService.ts';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useNotification } from '../contexts/NotificationContext';

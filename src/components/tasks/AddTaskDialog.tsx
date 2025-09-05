@@ -13,7 +13,7 @@ import { useTasks, Task } from '@/contexts/TaskContext';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import NotificationService from '@/services/NotificationService';
+import NotificationService from '@/services/NotificationService.ts';
 import { toast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';

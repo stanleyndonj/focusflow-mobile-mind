@@ -1,5 +1,5 @@
 import { registerPlugin, Capacitor } from '@capacitor/core';
-import NotificationService from './NotificationService';
+import NotificationService from './NotificationService.ts';
 
 interface TimerPluginInterface {
   startTimer(options: { durationSeconds: number; taskName?: string; taskId?: string }): Promise<{ success: boolean; durationSeconds: number }>;

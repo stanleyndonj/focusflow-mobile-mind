@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Volume2, Trash2, Upload, TestTube, CheckCircle, XCircle } from 'lucide-react';
 import CustomAudioPicker from './CustomAudioPicker';
 import CustomAudioService from '@/services/CustomAudioService';
-import NotificationService from '@/services/NotificationService';
+import NotificationService from '@/services/NotificationService.ts';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
